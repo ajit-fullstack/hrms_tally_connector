@@ -63,5 +63,7 @@ models/__pycache__
 schemas/__pycache__
 
 sales.xml
-
+build
+dist
+main.spec
 
