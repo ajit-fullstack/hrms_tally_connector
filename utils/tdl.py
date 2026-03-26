@@ -1,41 +1,64 @@
 company_details_xml = """
-    <ENVELOPE>
-    <HEADER>
-        <VERSION>1</VERSION>
-        <TALLYREQUEST>EXPORT</TALLYREQUEST>
-        <TYPE>COLLECTION</TYPE>
-        <ID>CompanyDetails</ID>
-    </HEADER>
+  <ENVELOPE>
+  <HEADER>
+      <VERSION>1</VERSION>
+      <TALLYREQUEST>EXPORT</TALLYREQUEST>
+      <TYPE>COLLECTION</TYPE>
+      <ID>CompanyDetails</ID>
+  </HEADER>
 
-    <BODY>
-        <DESC>
-        <STATICVARIABLES>
-            <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
-        </STATICVARIABLES>
+  <BODY>
+      <DESC>
+      <STATICVARIABLES>
+          <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+      </STATICVARIABLES>
 
-        <TDL>
-            <TDLMESSAGE>
+      <TDL>
+          <TDLMESSAGE>
 
-            <COLLECTION NAME="CompanyDetails">
-                <TYPE>COMPANY</TYPE>
-                <FETCH>
-                NAME,
-                GUID,
-                ADDRESS,
-                STATENAME,
-                COUNTRYNAME,
-                PINCODE,
-                GSTIN
-                </FETCH>
-            </COLLECTION>
+          <COLLECTION NAME="CompanyDetails">
+              <TYPE>COMPANY</TYPE>
+              <FETCH>
+              NAME,
+              GUID,
+              ADDRESS,
+              STATENAME,
+              COUNTRYNAME,
+              PINCODE,
+              GSTIN
+              </FETCH>
+          </COLLECTION>
 
-            </TDLMESSAGE>
-        </TDL>
+          </TDLMESSAGE>
+      </TDL>
 
-        </DESC>
-    </BODY>
-    </ENVELOPE>
+      </DESC>
+  </BODY>
+  </ENVELOPE>
 """
+
+company_details_bussy_xml = """<REQUEST>
+    <HEADER>
+        <REQUESTTYPE>Get</REQUESTTYPE>
+        <OBJECT>Company</OBJECT>
+    </HEADER>
+    <BODY>
+        <FIELDS>
+            <FIELD>Name</FIELD>
+            <FIELD>Address1</FIELD>
+            <FIELD>Address2</FIELD>
+            <FIELD>Address3</FIELD>
+            <FIELD>City</FIELD>
+            <FIELD>State</FIELD>
+            <FIELD>Country</FIELD>
+            <FIELD>Pincode</FIELD>
+            <FIELD>GSTIN</FIELD>
+            <FIELD>PAN</FIELD>
+            <FIELD>Email</FIELD>
+            <FIELD>Phone</FIELD>
+        </FIELDS>
+    </BODY>
+</REQUEST>"""
 
 
 stocks_tdl = """
@@ -131,60 +154,6 @@ ledger_tdl = """
 </ENVELOPE>
 """
 
-
-sales_tdl_v1 = """
-<ENVELOPE>
-  <HEADER>
-    <VERSION>1</VERSION>
-    <TALLYREQUEST>EXPORT</TALLYREQUEST>
-    <TYPE>COLLECTION</TYPE>
-    <ID>SalesVouchers</ID>
-  </HEADER>
-  <BODY>
-    <DESC>
-      <STATICVARIABLES>
-        <SVFROMDATE TYPE="Date">{from_date}</SVFROMDATE>
-        <SVTODATE TYPE="Date">{to_date}</SVTODATE>
-
-        <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
-      </STATICVARIABLES>
-
-      <TDL>
-        <TDLMESSAGE>
-
-          <COLLECTION NAME="SalesVouchers">
-            <TYPE>Voucher</TYPE>
-            <FILTER>IsSales</FILTER>
-
-            <FETCH>
-              DATE,
-              VOUCHERNUMBER,
-              VOUCHERTYPENAME,
-              PARTYLEDGERNAME,
-              PLACEOFSUPPLY,
-
-              INVENTORYENTRIES.STOCKITEMNAME,
-              INVENTORYENTRIES.BILLEDQTY,
-              INVENTORYENTRIES.RATE,
-              INVENTORYENTRIES.DISCOUNT,
-              INVENTORYENTRIES.AMOUNT,
-              INVENTORYENTRIES.RATEDETAILS
-
-            </FETCH>
-          </COLLECTION>
-
-          <SYSTEM TYPE="Formula" NAME="IsSales">
-            $$IsSales:$VoucherTypeName
-          </SYSTEM>
-
-        </TDLMESSAGE>
-      </TDL>
-
-    </DESC>
-  </BODY>
-</ENVELOPE>
-"""
-
 sales_tdl = """
 <ENVELOPE>
   <HEADER>
@@ -222,6 +191,12 @@ sales_tdl = """
               INVENTORYENTRIES.RATE,
               INVENTORYENTRIES.DISCOUNT,
               INVENTORYENTRIES.AMOUNT,
+
+              ALLLEDGERENTRIES.LEDGERNAME,
+              ALLLEDGERENTRIES.AMOUNT,
+              ALLLEDGERENTRIES.ISDEEMEDPOSITIVE,
+              ALLLEDGERENTRIES.LEDGERNAME.PARENT,
+              ALLLEDGERENTRIES.GROUPNAME
             </FETCH>
           </COLLECTION>
 
@@ -236,7 +211,6 @@ sales_tdl = """
   </BODY>
 </ENVELOPE>
 """
-
 
 purchase_tdl = """
 <ENVELOPE>
@@ -574,8 +548,8 @@ receipt_tdl = """
     <DESC>
       <STATICVARIABLES>
         <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
-        <SVFROMDATE>20250401</SVFROMDATE>
-        <SVTODATE>20250430</SVTODATE>
+        <SVFROMDATE>{from_date}</SVFROMDATE>
+        <SVTODATE>{to_date}</SVTODATE>
       </STATICVARIABLES>
 
       <TDL>
@@ -620,8 +594,8 @@ payment_tdl = """
     <DESC>
       <STATICVARIABLES>
         <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
-        <SVFROMDATE>20250401</SVFROMDATE>
-        <SVTODATE>20250430</SVTODATE>
+        <SVFROMDATE>{from_date}</SVFROMDATE>
+        <SVTODATE>{to_date}</SVTODATE>
       </STATICVARIABLES>
 
       <TDL>
@@ -643,6 +617,51 @@ payment_tdl = """
 
           <SYSTEM TYPE="Formulae" NAME="IsPayment">
             $$IsEqual:$VOUCHERTYPENAME:"Payment"
+          </SYSTEM>
+
+        </TDLMESSAGE>
+      </TDL>
+
+    </DESC>
+  </BODY>
+</ENVELOPE>
+"""
+
+contra_tdl = """
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>EXPORT</TALLYREQUEST>
+    <TYPE>COLLECTION</TYPE>
+    <ID>ContraVouchers</ID>
+  </HEADER>
+
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+        <SVFROMDATE>{from_date}</SVFROMDATE>
+        <SVTODATE>{to_date}</SVTODATE>
+      </STATICVARIABLES>
+
+      <TDL>
+        <TDLMESSAGE>
+
+          <COLLECTION NAME="ContraVouchers">
+            <TYPE>VOUCHER</TYPE>
+            <FILTER>IsContra</FILTER>
+            <FETCH>
+              DATE,
+              VOUCHERNUMBER,
+              VOUCHERTYPENAME,
+              LEDGERENTRIES,
+              ALLLEDGERENTRIES,
+              NARRATION
+            </FETCH>
+          </COLLECTION>
+
+          <SYSTEM TYPE="Formulae" NAME="IsContra">
+            $$IsEqual:$VOUCHERTYPENAME:"Contra"
           </SYSTEM>
 
         </TDLMESSAGE>
@@ -754,4 +773,72 @@ journal_tdl = """
   </BODY>
 </ENVELOPE>
 """
+
+# opening_balance_tdl = """
+# <ENVELOPE>
+#   <HEADER>
+#     <TALLYREQUEST>Export Data</TALLYREQUEST>
+#   </HEADER>
+#   <BODY>
+#     <EXPORTDATA>
+#         <REQUESTDESC>
+#           <REPORTNAME>Collection</REPORTNAME>
+#           <STATICVARIABLES>
+#             <SVFROMDATE>{date_str}</SVFROMDATE>
+#             <SVTODATE>{date_str}</SVTODATE>
+#           </STATICVARIABLES>
+#         </REQUESTDESC>
+#         <REQUESTDATA>
+#           <TALLYMESSAGE>
+#             <COLLECTION NAME="Py Trial Balance" ISMODIFY="No">
+#               <TYPE>Ledger</TYPE>
+#               <FETCH>Name, OpeningBalance, Debit, Credit, ClosingBalance</FETCH>
+#             </COLLECTION>
+#           </TALLYMESSAGE>
+#         </REQUESTDATA>
+#     </EXPORTDATA>
+#   </BODY>
+# </ENVELOPE>
+# """
+
+opening_balance_tdl = """
+<ENVELOPE>
+  <HEADER>
+    <VERSION>1</VERSION>
+    <TALLYREQUEST>EXPORT</TALLYREQUEST>
+    <TYPE>COLLECTION</TYPE>
+    <ID>LedgerDetails</ID>
+  </HEADER>
+
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+        <SVTODATE>{from_date}</SVTODATE>
+      </STATICVARIABLES>
+
+      <TDL>
+        <TDLMESSAGE>
+          <COLLECTION NAME="LedgerDetails">
+            <TYPE>LEDGER</TYPE>
+            <FETCH>
+              NAME,
+              PARENT,
+              OPENINGBALANCE,
+              CLOSINGBALANCE
+            </FETCH>
+          </COLLECTION>
+        </TDLMESSAGE>
+      </TDL>
+    </DESC>
+  </BODY>
+</ENVELOPE>
+"""
+
+
+# 01144444121
+# 121@airtel.com
+# acc no.:- 20027487151
+# dsl no:- 01123655542_wifi
+# leadline no.;- 01140586731
 

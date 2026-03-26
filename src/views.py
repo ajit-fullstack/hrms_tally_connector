@@ -2,7 +2,7 @@
 UI with adjusted heights - smaller first row, larger second row
 """
 
-import asyncio
+import asyncio, logging, json
 from datetime import datetime
 from typing import List, Optional
 from PySide6.QtWidgets import (
@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit, QProgressBar, QMessageBox,
     QSizePolicy, QSpacerItem, QSplitter, QHeaderView,
     QAbstractItemView, QListWidget, QListWidgetItem,
-    QButtonGroup, QRadioButton
+    QButtonGroup, QRadioButton, QDialog
 )
 from PySide6.QtCore import Qt, QDate, QTimer, Signal
 from PySide6.QtGui import QFont, QColor, QTextCursor, QIcon
@@ -22,6 +22,10 @@ from PySide6.QtGui import QFont, QColor, QTextCursor, QIcon
 from src.controllers import MainController
 from src.models import ConnectorStatus, LogLevel, LogEntry, TallyConfig, BusyConfig
 from src.data_manager import EnhancedDataView
+
+
+logging.basicConfig(filename="error.txt", format="%(asctime)s - %(message)s", level=logging.DEBUG)
+
 
 class StatusIndicator(QLabel):
     """Custom status indicator widget"""
@@ -212,6 +216,28 @@ class DashboardTab(QWidget):
         last_sync = self.controller.get_last_sync_time()
         if last_sync:
             self.last_sync_label.setText(f"Last sync: {last_sync.strftime('%Y-%m-%d %H:%M:%S')}")
+
+class InputPopup(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Dublicate Invoice Found")
+
+        layout = QVBoxLayout()
+
+        self.label = QLabel("Add a prefix to avoid duplication:")
+        self.input_field = QLineEdit()
+
+        self.ok_button = QPushButton("OK")
+        self.ok_button.clicked.connect(self.accept)
+
+        layout.addWidget(self.label)
+        layout.addWidget(self.input_field)
+        layout.addWidget(self.ok_button)
+
+        self.setLayout(layout)
+
+    def get_value(self):
+        return self.input_field.text()
 
 class TallyConnectorTab(QWidget):
     """Tally connec tor with reduced first row height"""
@@ -459,73 +485,6 @@ class TallyConnectorTab(QWidget):
         
         date_group.setLayout(date_layout)
         top_layout.addWidget(date_group)
-
-
-        # # 2. Date Range Group - COMPACT
-        # date_group = QGroupBox("📅 Date Range")
-        # date_group.setStyleSheet("""
-        #     QGroupBox {
-        #         font-weight: bold;
-        #         font-size: 13px;
-        #         border: 2px solid #cccccc;
-        #         border-radius: 6px;
-        #         margin-top: 8px;
-        #         padding-top: 12px;
-        #         min-width: 400px;
-        #     }
-        #     QGroupBox::title {
-        #         subcontrol-origin: margin;
-        #         left: 12px;
-        #         padding: 0 8px 0 8px;
-        #         color: #333333;
-        #     }
-        # """)
-        
-        # date_layout = QVBoxLayout()
-        # date_layout.setSpacing(8)  # Reduced spacing
-        
-        # # From date - COMPACT
-        # from_layout = QVBoxLayout()
-        # from_label = QLabel("From:")
-        # from_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        # from_layout.addWidget(from_label)
-        # self.date_from = QDateEdit()
-        # self.date_from.setDate(QDate.currentDate().addDays(-30))
-        # self.date_from.setCalendarPopup(True)
-        # self.date_from.setMinimumHeight(30)  # Reduced from 35
-        # self.date_from.setStyleSheet("""
-        #     QDateEdit {
-        #         padding: 6px;
-        #         border: 1px solid #cccccc;
-        #         border-radius: 4px;
-        #         font-size: 12px;
-        #     }
-        # """)
-        # from_layout.addWidget(self.date_from)
-        # date_layout.addLayout(from_layout)
-        
-        # # To date - COMPACT
-        # to_layout = QVBoxLayout()
-        # to_label = QLabel("To:")
-        # to_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        # to_layout.addWidget(to_label)
-        # self.date_to = QDateEdit()
-        # self.date_to.setDate(QDate.currentDate())
-        # self.date_to.setCalendarPopup(True)
-        # self.date_to.setMinimumHeight(30)  # Reduced from 35
-        # self.date_to.setStyleSheet("""
-        #     QDateEdit {
-        #         padding: 6px;
-        #         border: 1px solid #cccccc;
-        #         border-radius: 4px;
-        #         font-size: 12px;
-        #     }
-        # """)
-        # to_layout.addWidget(self.date_to)
-        # date_layout.addLayout(to_layout)
-        
-        # date_group.setLayout(date_layout)
-        # top_layout.addWidget(date_group)
         
         # 3. Data Selection Group — UPDATED UI + SCROLL + HEADER CHECKBOX
         data_group = QGroupBox("📊 Data Selection")   # No title text here
@@ -580,8 +539,8 @@ class TallyConnectorTab(QWidget):
             ("📋 Debit Note", "Debit Note"),
             ("💵 Receipt", "Receipt"),
             ("💳 Payment", "Payment"),
+            ("🔁 Contra", "Contra"),
             ("📒 Journal", "Journal"),
-            # ("🔁 Contra", "Contra"),
             ("📑 Sale Order", "Sale Order"),
             ("🧾 Purchase Order", "Purchase Order"),
             ("🏭 Stock Journal", "Stock Journal"),
@@ -640,7 +599,7 @@ class TallyConnectorTab(QWidget):
 
                 # if data_type in ["Ledgers", "Stocks"]:
                 #     cb.setChecked(True)
-                if data_type in ["Delivery Challan"]:
+                if data_type in ["Sales"]:
                     cb.setChecked(True)
 
                 self.data_checkboxes.append(cb)
@@ -821,45 +780,86 @@ class TallyConnectorTab(QWidget):
         self.export_btn.setEnabled(False)
         self.sync_btn.setEnabled(False)
         self.export_btn.setText("Exporting...")
+                
+        try:
         
-        # Call controller to export
-        success = await self.controller.export_tally_data(config)
-        self.exported_data = success
-    
-        # Format data to show on ui
-        formated_data = await self.format_data(success)
-        self.data_view.refresh_data(formated_data)
+            # Call controller to export
+            success = await self.controller.export_tally_data(config)
+
+            self.exported_data = success
+            dublicate_invoice = self.controller.dublicate_invoice
+
+            # open popup to get prefix for dublicate invoices
+            if dublicate_invoice:
+                dialog = InputPopup()
+
+                if dialog.exec():   # waits until user closes dialog
+                    user_value = dialog.get_value()
+                    self.prefix_entered = user_value
+
+            # Format data to show on ui
+            formated_data = await self.format_data(success, dublicate_invoice)
+            self.data_view.refresh_data(formated_data)
+                
+        except Exception as e:
+            QMessageBox.warning(self, "Error", str(e))
+            QTimer.singleShot(500, self.enable_buttons)
+            return
         
         # Re-enable buttons after delay
         QTimer.singleShot(500, self.enable_buttons)
         return success
     
-    async def format_data(self, data):
+    async def format_data(self, data, dublicate_invoice):
         formated_data = {}
         for section, records in data.items():
             if section in ["ledgers", "stocks"]:
                 formated_data.update({section: records})
             else:
-                if section in ["sales", "purchase", "credit_note", "debit_note", "receipt", "payment", "sale_order", "purchase_order", "delivery_challan", "journal", "stock_journal"]:
-                    final_row = []
-                    for record in records:
-                        record = dict(record)
+                # if section in ["sales", "purchase", "credit_note", "debit_note", "receipt", "payment", "contra", "sale_order", "purchase_order", "delivery_challan", "journal", "stock_journal"]:
+                final_row = []
+                count_map = {}
+                for record in records:
+                    record = dict(record)
 
-                        taxable_value = total_tax = total = 0
-                        for item in record.get('items'):
-                            total += (item.get('invoice_value') or 0)
-                            taxable_value += (item.get('taxable_value') or 0)
-                            total_tax += (item.get('igst') or 0) + (item.get('cgst') or 0) + (item.get('sgst') or 0)
+                    if section in dublicate_invoice.keys():
+                        field_name = 'invoice_no' if section != "purchase" else 'voucher_no'
+                        invoice_no = record.get(field_name)
+                        if invoice_no not in count_map:
+                            count_map[invoice_no] = 0
+                        else:
+                            count_map[invoice_no] += 1
 
-                        record["taxable_value"] = taxable_value
-                        record["total_tax"] = total_tax
-                        record["total"] = round(total, 2)
+                        prefix = self.prefix_entered * count_map[invoice_no]
+                        record[field_name] = f"{prefix}{invoice_no}"
 
-                        record.pop("items")
-                        final_row.append(record)
+                    if section == "purchase":
+                        if not record.get('supplier_voucher_date'):
+                            record["supplier_voucher_date"] = ""
 
-                    formated_data.update({section: final_row})
-        
+                    if section in ["payment", "expense_with_payment", "contra"]:
+                        party_name = []
+                        customers = json.loads(record.get('customer_name'))
+                        for customer in customers:
+                            party_name.append(customer.get('name'))
+                        
+                        record["customer_name"] = " ".join(party_name)
+
+                    taxable_value = total_tax = total = 0
+                    for item in record.get('items'):
+                        total += (item.get('invoice_value') or 0)
+                        taxable_value += (item.get('taxable_value') or 0)
+                        total_tax += (item.get('igst') or 0) + (item.get('cgst') or 0) + (item.get('sgst') or 0)
+
+                    record["taxable_value"] = round(taxable_value, 2)
+                    record["total_tax"] = round(total_tax, 2)
+                    record["total"] = round(total, 2)
+
+                    record.pop("items")
+                    final_row.append(record)
+
+                formated_data.update({section: final_row})
+    
         return formated_data
     
     def on_sync_clicked(self):
@@ -885,8 +885,13 @@ class TallyConnectorTab(QWidget):
         self.sync_btn.setEnabled(False)
         self.sync_btn.setText("Syncing...")
         
-        # Call controller to sync
-        success = await self.controller.sync_tally_data(config, self.exported_data)
+        try:
+            # Call controller to sync
+            success = await self.controller.sync_tally_data(config, self.exported_data)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", str(e))
+            QTimer.singleShot(500, self.enable_buttons)
+            return
         
         # Re-enable buttons after delay
         QTimer.singleShot(1000, self.enable_buttons)
@@ -940,14 +945,14 @@ class BusyConnectorTab(QWidget):
                 font-size: 13px;
                 border: 2px solid #cccccc;
                 border-radius: 6px;
-                margin-top: 8px;
-                padding-top: 12px;
-                min-width: 280px;
+                margin-top: 6px;
+                padding-top: 2px;
+                min-width: 400px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 12px;
-                padding: 0 8px 0 8px;
+                padding: 0 6px;
                 color: #333333;
             }
         """)
@@ -1042,7 +1047,7 @@ class BusyConnectorTab(QWidget):
                 border-radius: 6px;
                 margin-top: 8px;
                 padding-top: 12px;
-                min-width: 240px;
+                min-width: 400px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
@@ -1063,6 +1068,7 @@ class BusyConnectorTab(QWidget):
         self.date_from = QDateEdit()
         self.date_from.setDate(QDate.currentDate().addDays(-30))
         self.date_from.setCalendarPopup(True)
+        self.date_from.setDisplayFormat("dd/MM/yyyy")
         self.date_from.setMinimumHeight(30)  # Reduced from 35
         self.date_from.setStyleSheet("""
             QDateEdit {
@@ -1083,6 +1089,7 @@ class BusyConnectorTab(QWidget):
         self.date_to = QDateEdit()
         self.date_to.setDate(QDate.currentDate())
         self.date_to.setCalendarPopup(True)
+        self.date_to.setDisplayFormat("dd/MM/yyyy")
         self.date_to.setMinimumHeight(30)  # Reduced from 35
         self.date_to.setStyleSheet("""
             QDateEdit {
@@ -1106,9 +1113,9 @@ class BusyConnectorTab(QWidget):
                 font-size: 13px;
                 border: 2px solid #cccccc;
                 border-radius: 6px;
-                margin-top: 8px;
-                padding-top: 12px;
-                min-width: 300px;
+                background-color: #ffffff;
+                min-width: 400px;
+                max-width: 400px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
@@ -1118,12 +1125,37 @@ class BusyConnectorTab(QWidget):
             }
         """)
         
-        data_layout = QGridLayout()
-        data_layout.setSpacing(8)  # Reduced spacing
-        data_layout.setContentsMargins(12, 8, 12, 8)  # Reduced margins
+        outer_layout = QGridLayout()
+        outer_layout.setSpacing(8)  # Reduced spacing
+        outer_layout.setContentsMargins(12, 8, 12, 8)  # Reduced margins
         
+        # Scroll Area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFixedHeight(140)
+        scroll.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: #ffffff;
+            }
+            QScrollArea > QWidget > QWidget {
+                background-color: #ffffff;
+            }
+        """)
+
+        scroll_container = QWidget()
+        scroll_container.setStyleSheet("""
+            QWidget {
+                background-color: #ffffff;
+            }
+        """)
+        data_layout = QGridLayout(scroll_container)
+        data_layout.setSpacing(8)
+        data_layout.setContentsMargins(4, 4, 4, 4)
+
         # Create checkboxes for data types with icons - 2 columns, COMPACT
         data_types = [
+            ("Select All", "Select All"),
             ("📊 Ledgers", "Ledgers"),
             ("📦 Stocks", "Stocks"),
             ("💰 Sales", "Sales"),
@@ -1132,35 +1164,81 @@ class BusyConnectorTab(QWidget):
             ("📋 Debit Note", "Debit Note"),
             ("💵 Receipt", "Receipt"),
             ("💳 Payment", "Payment"),
+            ("🔄 Contra", "Contra"),
             ("📒 Journal", "Journal"),
-            ("🔄 Contra", "Contra")
+            ("📑 Sale Order", "Sale Order"),
+            ("🧾 Purchase Order", "Purchase Order"),
+            ("🏭 Stock Journal", "Stock Journal"),
+            ("🚚 Delivery Challan", "Delivery Challan"),
         ]
         
         row, col = 0, 0
+        self.data_checkboxes = []
         for icon_text, data_type in data_types:
-            checkbox = QCheckBox(icon_text)
-            checkbox.setProperty("data_type", data_type)
-            checkbox.setMinimumHeight(25)  # Reduced from 30
-            checkbox.setStyleSheet("""
-                QCheckBox {
-                    padding: 6px;
-                    font-size: 12px;
-                }
-                QCheckBox::indicator {
-                    width: 16px;
-                    height: 16px;
-                }
-            """)
-            # Check the first two by default
-            if data_type in ["Ledgers", "Stocks"]:
-                checkbox.setChecked(True)
-            data_layout.addWidget(checkbox, row, col)
-            col += 1
-            if col > 1:  # 2 columns
-                col = 0
-                row += 1
+            if data_type == "Select All":
+                select_all_cb = QCheckBox(icon_text)
+                select_all_cb.setToolTip("Check / Uncheck All")
+
+                select_all_cb.setProperty("data_type", data_type)
+                select_all_cb.setMinimumHeight(25)
+                select_all_cb.setStyleSheet("""
+                    QCheckBox {
+                        font-weight: bold;
+                        font-size: 13px;
+                        padding: 6px;
+                        border-radius: 4px;
+                    }
+                    QCheckBox:hover {
+                        background-color: #f5f7fa;
+                    }
+                    QCheckBox::indicator {
+                        width: 16px;
+                        height: 16px;
+                    }
+                """)
+
+                self.data_checkboxes.append(select_all_cb)
+                data_layout.addWidget(select_all_cb, row, col)
+                col += 1
+                select_all_cb.stateChanged.connect(self.toggle_all_data)
+            else:
+                cb = QCheckBox(icon_text)
+                cb.setProperty("data_type", data_type)
+                cb.setMinimumHeight(25)
+
+                cb.setStyleSheet("""
+                    QCheckBox {
+                        padding: 6px;
+                        font-size: 12px;
+                        border-radius: 4px;
+                        background-color: none;
+                    }
+                    QCheckBox:hover {
+                        background-color: #f5f7fa;
+                    }
+                    QCheckBox::indicator {
+                        width: 16px;
+                        height: 16px;
+                    }
+                """)
+
+                # if data_type in ["Ledgers", "Stocks"]:
+                #     cb.setChecked(True)
+                if data_type in ["Sales"]:
+                    cb.setChecked(True)
+
+                self.data_checkboxes.append(cb)
+                data_layout.addWidget(cb, row, col)
+
+                col += 1
+                if col > 1:
+                    col = 0
+                    row += 1
+
+        scroll.setWidget(scroll_container)
+        outer_layout.addWidget(scroll)    
         
-        data_group.setLayout(data_layout)
+        data_group.setLayout(outer_layout)
         top_layout.addWidget(data_group)
         
         # Action Buttons (Right side, in ONE COLUMN) - COMPACT
@@ -1232,7 +1310,7 @@ class BusyConnectorTab(QWidget):
         bottom_layout = QVBoxLayout()
         
         # Section Title
-        section_title = QLabel("📋 Table: Accounting Data")
+        section_title = QLabel("📋 Preview")
         section_title.setStyleSheet("""
             QLabel {
                 font-size: 15px;
@@ -1254,6 +1332,16 @@ class BusyConnectorTab(QWidget):
         
         self.setLayout(main_layout)
     
+    def toggle_all_data(self, state):
+        """Header checkbox → Select/Deselect all"""
+
+        checked = bool(state)
+        for cb in self.data_checkboxes:
+            cb.blockSignals(True)
+            cb.setChecked(checked)
+            cb.blockSignals(False)
+    
+
     def test_connection(self):
         """Test BUSY connection"""
         dsn = self.dsn_combo.currentText()

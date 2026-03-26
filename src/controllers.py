@@ -7,7 +7,7 @@ from utils.tdl import *
 from utils.drop_down import *
 from utils.utils import Utils
 import xml.etree.ElementTree as ET
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List, Optional
 from PySide6.QtCore import QObject, Signal, QTimer
 
@@ -15,6 +15,8 @@ from src.models import (
     ConnectorStatus, LogLevel, LogEntry,
     TallyConfig, BusyConfig
 )
+
+logging.basicConfig(filename="error.txt", format="%(asctime)s - %(message)s", level=logging.DEBUG)
 
 class MainController(QObject):
     """Main application controller"""
@@ -46,7 +48,8 @@ class MainController(QObject):
 
         # Manually added
         self.url = ""
-        # self.exported_data = dict()
+        self.dublicate_invoice = dict()
+        self.ledger_category_map = dict()
     
     def _add_log(self, level: LogLevel, message: str, source: str):
         """Add a log entry and emit signal"""
@@ -126,60 +129,68 @@ class MainController(QObject):
         self._add_log(LogLevel.INFO, "Tally disconnected", "Tally")
     
     # async def export_tally_data(self, config: TallyConfig) -> bool:
-    #     """Mock Tally data export"""
-    #     self._add_log(LogLevel.INFO, "Starting Tally data export...", "Tally")
-        
-    #     self.url = f"http://{config.host}:{config.port}"
+    #     # try:
+    #         """Mock Tally data export"""
+    #         self._add_log(LogLevel.INFO, "Starting Tally data export...", "Tally")
+            
+    #         self.url = f"http://{config.host}:{config.port}"
 
-    #     final_data = {}
-    #     if "Ledgers" in config.selected_data_types:
-    #         ledgers = await self.get_tally_ledgers(config.date_from)
-    #         final_data.update({ "ledgers": ledgers })
-    #     if "Stocks" in config.selected_data_types:
-    #         stocks = await self.get_tally_stocks(config.date_from)
-    #         final_data.update({ "stocks": stocks })
-    #     if "Sales" in config.selected_data_types:
-    #         sales = await self.get_tally_sales(config.date_from, config.date_to)
-    #         final_data.update({ "sales": sales })
-    #     if "Purchase" in config.selected_data_types:
-    #         purchase = await self.get_tally_purchase(config.date_from, config.date_to)
-    #         final_data.update({ "purchase": purchase })
-    #     if "Credit Note" in config.selected_data_types:
-    #         credit_note = await self.get_tally_creditNote(config.date_from, config.date_to)
-    #         final_data.update({ "credit_note": credit_note })
-    #     if "Debit Note" in config.selected_data_types:
-    #         debit_note = await self.get_tally_debitNote(config.date_from, config.date_to)
-    #         final_data.update({ "debit_note": debit_note })
-    #     if "Sale Order" in config.selected_data_types:
-    #         sale_order = await self.get_sales_order(config.date_from, config.date_to)
-    #         final_data.update({ "sale_order": sale_order })
-    #     if "Purchase Order" in config.selected_data_types:
-    #         purchase_order = await self.get_purchase_order(config.date_from, config.date_to)
-    #         final_data.update({ "purchase_order": purchase_order })
-    #     if "Delivery Challan" in config.selected_data_types:
-    #         delivery_challan = await self.get_delivery_challan(config.date_from, config.date_to)
-    #         final_data.update({ "delivery_challan": delivery_challan })
-    #     if "Receipt" in config.selected_data_types:
-    #         receipt = await self.get_tally_receipt(config.date_from, config.date_to)
-    #         final_data.update({ "receipt": receipt })
-    #     if "Payment" in config.selected_data_types:
-    #         payment = await self.get_tally_payment(config.date_from, config.date_to)
-    #         final_data.update({ "payment": payment })
-    #     if "Journal" in config.selected_data_types:
-    #         journal = await self.get_tally_journal(config.date_from, config.date_to)
-    #         final_data.update({ "journal": journal })
-    #     if "Stock Journal" in config.selected_data_types:
-    #         stock_journal = await self.get_stock_jurnal(config.date_from, config.date_to)
-    #         final_data.update({ "stock_journal": stock_journal })
-     
-    #     QTimer.singleShot(7000, lambda: self._complete_export("Tally"))
-    #     return final_data
+    #         final_data = {}
+    #         if "Ledgers" in config.selected_data_types:
+    #             ledgers = await self.get_tally_ledgers(config.date_from)
+    #             final_data.update({ "ledgers": ledgers })
+    #         if "Stocks" in config.selected_data_types:
+    #             stocks = await self.get_tally_stocks(config.date_from)
+    #             final_data.update({ "stocks": stocks })
+    #         if "Sales" in config.selected_data_types:
+    #             sales = await self.get_tally_sales(config.date_from, config.date_to)
+    #             final_data.update({ "sales": sales })
+    #         if "Purchase" in config.selected_data_types:
+    #             purchase = await self.get_tally_purchase(config.date_from, config.date_to)
+    #             final_data.update({ "purchase": purchase })
+    #         if "Credit Note" in config.selected_data_types:
+    #             credit_note = await self.get_tally_creditNote(config.date_from, config.date_to)
+    #             final_data.update({ "credit_note": credit_note })
+    #         if "Debit Note" in config.selected_data_types:
+    #             debit_note = await self.get_tally_debitNote(config.date_from, config.date_to)
+    #             final_data.update({ "debit_note": debit_note })
+    #         if "Sale Order" in config.selected_data_types:
+    #             sale_order = await self.get_sales_order(config.date_from, config.date_to)
+    #             final_data.update({ "sale_order": sale_order })
+    #         if "Purchase Order" in config.selected_data_types:
+    #             purchase_order = await self.get_purchase_order(config.date_from, config.date_to)
+    #             final_data.update({ "purchase_order": purchase_order })
+    #         if "Delivery Challan" in config.selected_data_types:
+    #             delivery_challan = await self.get_delivery_challan(config.date_from, config.date_to)
+    #             final_data.update({ "delivery_challan": delivery_challan })
+    #         if "Receipt" in config.selected_data_types:
+    #             receipt = await self.get_tally_receipt(config.date_from, config.date_to)
+    #             final_data.update({ "receipt": receipt })
+    #         if "Payment" in config.selected_data_types:
+    #             payment = await self.get_tally_payment(config.date_from, config.date_to)
+    #             final_data.update({ "payment": payment })
+    #         if "Journal" in config.selected_data_types:
+    #             journal = await self.get_tally_journal(config.date_from, config.date_to)
+    #             final_data.update({ "journal": journal })
+    #         if "Stock Journal" in config.selected_data_types:
+    #             stock_journal = await self.get_stock_jurnal(config.date_from, config.date_to)
+    #             final_data.update({ "stock_journal": stock_journal })
+
+    #         if "Contra" in config.selected_data_types:
+    #             contra = await self.get_tally_contra(config.date_from, config.date_to)
+    #             # task_keys.append("contra")
+    #             final_data.update({ "contra": contra })
+                
+        
+    #         QTimer.singleShot(7000, lambda: self._complete_export("Tally"))
+    #         return final_data
+    #     # except Exception as e:
+    #     #     raise Exception(str(e))
     
     async def export_tally_data(self, config: TallyConfig) -> dict:
         """Parallel Tally data export"""
 
         self._add_log(LogLevel.INFO, "Starting Tally data export...", "Tally")
-
         self.url = f"http://{config.host}:{config.port}"
 
         tasks = []
@@ -195,89 +206,77 @@ class MainController(QObject):
                 task_keys.append("stocks")
 
             if "Sales" in config.selected_data_types:
-                tasks.append(
-                    self.get_tally_sales(config.date_from, config.date_to)
-                )
+                tasks.append(self.get_tally_sales(config.date_from, config.date_to))
                 task_keys.append("sales")
 
             if "Purchase" in config.selected_data_types:
-                tasks.append(
-                    self.get_tally_purchase(config.date_from, config.date_to)
-                )
+                tasks.append(self.get_tally_purchase(config.date_from, config.date_to))
                 task_keys.append("purchase")
 
             if "Credit Note" in config.selected_data_types:
-                tasks.append(
-                    self.get_tally_creditNote(config.date_from, config.date_to)
-                )
+                tasks.append(self.get_tally_creditNote(config.date_from, config.date_to))
                 task_keys.append("credit_note")
 
             if "Debit Note" in config.selected_data_types:
-                tasks.append(
-                    self.get_tally_debitNote(config.date_from, config.date_to)
-                )
+                tasks.append(self.get_tally_debitNote(config.date_from, config.date_to))
                 task_keys.append("debit_note")
 
             if "Sale Order" in config.selected_data_types:
-                tasks.append(
-                    self.get_sales_order(config.date_from, config.date_to)
-                )
+                tasks.append(self.get_sales_order(config.date_from, config.date_to))
                 task_keys.append("sale_order")
 
             if "Purchase Order" in config.selected_data_types:
-                tasks.append(
-                    self.get_purchase_order(config.date_from, config.date_to)
-                )
+                tasks.append(self.get_purchase_order(config.date_from, config.date_to))
                 task_keys.append("purchase_order")
 
             if "Delivery Challan" in config.selected_data_types:
-                tasks.append(
-                    self.get_delivery_challan(config.date_from, config.date_to)
-                )
+                tasks.append(self.get_delivery_challan(config.date_from, config.date_to))
                 task_keys.append("delivery_challan")
 
             if "Receipt" in config.selected_data_types:
-                tasks.append(
-                    self.get_tally_receipt(config.date_from, config.date_to)
-                )
+                tasks.append(self.get_tally_receipt(config.date_from, config.date_to))
                 task_keys.append("receipt")
 
             if "Payment" in config.selected_data_types:
-                tasks.append(
-                    self.get_tally_payment(config.date_from, config.date_to)
-                )
+                if "Ledgers" not in config.selected_data_types:
+                    tasks.append(self.get_tally_ledgers(config.date_from))
+                    task_keys.append("ledgers")
+
+                tasks.append(self.get_tally_payment(config.date_from, config.date_to))
                 task_keys.append("payment")
 
             if "Journal" in config.selected_data_types:
-                tasks.append(
-                    self.get_tally_journal(config.date_from, config.date_to)
-                )
+                tasks.append(self.get_tally_journal(config.date_from, config.date_to))
                 task_keys.append("journal")
 
             if "Stock Journal" in config.selected_data_types:
-                tasks.append(
-                    self.get_stock_jurnal(config.date_from, config.date_to)
-                )
+                tasks.append(self.get_stock_jurnal(config.date_from, config.date_to))
                 task_keys.append("stock_journal")
+
+            if "Contra" in config.selected_data_types:
+                tasks.append(self.get_tally_contra(config.date_from, config.date_to))
+                task_keys.append("contra")
 
             # ✅ PARALLEL EXECUTION
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             final_data = {}
-
             for key, result in zip(task_keys, results):
                 if isinstance(result, Exception):
-                    # logging.exception(result)
+                    logging.exception(result)
                     raise Exception(result)
 
-                final_data[key] = result
+                if key == "payment":
+                    final_data["payment"] = (result.get('payment_invoices') or [])
+                    final_data["expense_with_payment"] = (result.get('expense_with_payment_invoices') or [])
+                else:
+                    final_data[key] = result
 
             QTimer.singleShot(7000, lambda: self._complete_export("Tally"))
-
             return final_data
 
         except Exception as e:
-            # logging.exception(e)
+            logging.exception(e)
             raise Exception(e)
 
     # Export Data Form Tally
@@ -305,6 +304,59 @@ class MainController(QObject):
             })
             
         return list_of_companies
+    
+    def get_busy_companies(self):
+        headers = {
+            "Content-Type": "text/xml"
+        }
+
+        xml_request = """
+        <REQUEST>
+            <HEADER>
+                <REQUESTTYPE>GetCompanyList</REQUESTTYPE>
+            </HEADER>
+        </REQUEST>
+        """
+
+        response = requests.post(self.url, data=xml_request, headers=headers)
+
+        print("response:", response.text)
+
+        root = ET.fromstring(response.text)
+
+        companies = []
+
+        for company in root.findall(".//COMPANY"):
+            name = company.findtext("NAME")
+            if name:
+                companies.append(name)
+
+        return companies
+    
+    async def get_opening_balance(self, start_date):
+        start_date = start_date - timedelta(days=1)
+        from_date = start_date.strftime("%Y%m%d")
+
+        xml_request  = opening_balance_tdl.format(from_date=from_date)
+        request = requests.post(self.url, data=xml_request)
+        response = request.text
+
+        response = Utils.clean_tally_xml(response)
+        root = ET.fromstring(response)
+
+        ledgers = {}
+        for ledger in root.findall(".//LEDGER"):
+            name = ""
+            for lang in ledger.findall(".//LANGUAGENAME.LIST"):
+                for child in lang.findall(".//NAME.LIST/NAME"):
+                    name = child.text
+
+            if name:
+                ledgers.update({
+                    name: abs(float(ledger.findtext("CLOSINGBALANCE") or 0))
+                })
+
+        return ledgers
 
     async def get_tally_ledgers(self, start_date):
         request = requests.post(self.url, data=ledger_tdl)
@@ -312,6 +364,7 @@ class MainController(QObject):
 
         response = Utils.clean_tally_xml(response)
         root = ET.fromstring(response)
+        opening_balance = await self.get_opening_balance(start_date)
 
         formated_json = []
         for ledger in root.findall(".//LEDGER"):
@@ -324,6 +377,8 @@ class MainController(QObject):
                 
             if not temp_dict.get("ledger_name"):
                 continue
+
+            self.ledger_category_map[temp_dict.get('ledger_name').lower()] = (ledger.findtext("PARENT") or "")
 
             temp_dict["parent"] = (ledger.findtext("PARENT") or "")
             temp_dict["tax_type"] = (ledger.findtext("TAXTYPE") or "")
@@ -341,8 +396,8 @@ class MainController(QObject):
             temp_dict["pincode"] = (ledger.findtext("PINCODE") or "")
             temp_dict["country"] = (ledger.findtext("COUNTRYNAME") or "")
             temp_dict["gstin"] = ""
-            temp_dict["open_bal"] = ledger.findtext("OPENINGBALANCE")
-            temp_dict["open_bal"] = ledger.findtext("OPENINGBALANCE")
+            # temp_dict["open_bal"] = ledger.findtext("OPENINGBALANCE")
+            temp_dict["open_bal"] = opening_balance[temp_dict.get('ledger_name')] if temp_dict.get('ledger_name') in opening_balance.keys() else 0
             temp_dict["open_date"] = start_date
 
             # for child in ledger:
@@ -396,8 +451,12 @@ class MainController(QObject):
 
             temp_dict["gst_rates"] = gst_rates
             temp_dict["hsn"] = ""
-            temp_dict["opening_qty"] = float(item.findtext("OPENINGBALANCE")[:-4] or 0)
-            temp_dict["opening_rate"] = float(item.findtext("OPENINGRATE")[:-4] or 0)
+            quantity, unit = Utils.parse_tally_qty(item.findtext("OPENINGBALANCE"))
+            # temp_dict["opening_qty"] = float(item.findtext("OPENINGBALANCE")[:-4] or 0)
+            temp_dict["opening_qty"] = quantity
+            rate, unit = Utils.parse_tally_qty(item.findtext("OPENINGBALANCE"))
+            # temp_dict["opening_rate"] = float(item.findtext("OPENINGRATE")[:-4] or 0)
+            temp_dict["opening_rate"] = rate
             temp_dict["opening_amt"] = abs(float(item.findtext("OPENINGVALUE")) or 0)
             temp_dict["category"] = item.findtext("GSTTYPEOFSUPPLY")
             temp_dict["opening_date"] = start_date
@@ -431,19 +490,26 @@ class MainController(QObject):
         xml_request  = sales_tdl.format(from_date=from_date, to_date=to_date)
         request = requests.post(self.url, data=xml_request)
         response = request.text
-
-        # print("response", response)
+        
+        # logging.debug(response)
 
         response = Utils.clean_tally_xml(response)
         root = ET.fromstring(response)
 
         # Sales
         invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
 
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
+
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
 
             temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
@@ -451,39 +517,75 @@ class MainController(QObject):
             temp_dict["customer_name"] = voucher.findtext("PARTYLEDGERNAME")
             temp_dict["placeOfSupply"] = voucher.findtext("PLACEOFSUPPLY")
 
+            has_inventory = False
+            inventory_entries = voucher.findall(".//ALLINVENTORYENTRIES.LIST")
+            for item in inventory_entries:
+                if item.findtext("STOCKITEMNAME"):
+                    has_inventory = True
+                    break
+
             items = []
-            for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
-                temp_item = {}
-                temp_item["item_name"] = item.findtext("STOCKITEMNAME")
-                temp_item["category"] = "Inventory"
+            if has_inventory:
+                for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
+                    temp_item = {}
+                    temp_item["item_name"] = item.findtext("STOCKITEMNAME")
+                    temp_item["category"] = "Inventory"
 
-                uml = item.findtext("BILLEDQTY")[-3:]
-                uml = uml.lower()
-                uml = measurement[uml]
-                temp_item["uml"] = uml
+                    quantity, unit = Utils.parse_tally_qty(item.findtext("BILLEDQTY"))
+                    rate, unit = Utils.parse_tally_qty(item.findtext("RATE"))
 
-                temp_item["qty"] = float(item.findtext("BILLEDQTY")[:-4] or 0)
-                temp_item["rate"] = float(item.findtext("RATE")[:-4] or 0)
-                temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
+                    temp_item["qty"] = float(quantity or 0)
+                    temp_item["rate"] = float(rate or 0)
+                    temp_item["unit"] = measurement[unit] if unit in measurement.keys() else 30
+                    temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
 
-                if float(item.findtext("DISCOUNT") or 0):
-                    temp_item["discount_type"] = "%"
-                    temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
+                    if float(item.findtext("DISCOUNT") or 0):
+                        temp_item["discount_type"] = "%"
+                        temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
 
-                gst_rate, tax_type = self.get_gst_rate(voucher, True)
-                
-                temp_item["gst_rate"] = gst_rate
-                if tax_type == "IGST":
-                    temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
-                else:
-                    temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
-                    temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                    gst_rate, tax_type = self.get_gst_rate(voucher, True)
+                    
+                    temp_item["gst_rate"] = gst_rate
+                    if tax_type == "IGST":
+                        temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                    else:
+                        temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                        temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
 
-                temp_item["invoice_value"] = round((temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0), 2)
-                items.append(temp_item)
+                    temp_item["invoice_value"] = round((temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0), 2)
+                    items.append(temp_item)
+            else:
+                for ledger in voucher.findall(".//LEDGERENTRIES.LIST"):
+                    ledger_name = ledger.findtext("LEDGERNAME")
+                    amount = float(ledger.findtext("AMOUNT") or 0)
+                    
+                    if ledger_name != temp_dict.get('customer_name') and amount > 0:
+                        temp_item = {}
+                        temp_item["item_name"] = ledger_name
+                        temp_item["category"] = "Service"
 
+                        temp_item["qty"] = 1
+                        temp_item["rate"] = amount
+                        temp_item["taxable_value"] = amount
+ 
+                        gst_rate, tax_type = self.get_gst_rate(voucher, True)
+
+                        temp_item["gst_rate"] = gst_rate
+                        if tax_type == "IGST":
+                            temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                        else:
+                            temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                            temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+
+                        temp_item["invoice_value"] = round(amount + (temp_item.get('igst') or 0) + (temp_item.get('cgst') or 0) + (temp_item.get('sgst') or 0), 2)
+
+                        items.append(temp_item)
+            
             temp_dict["items"] = items
             invoices.append(temp_dict)
+
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["sales"] = dublicate_invoice_flag
 
         # print("invoices", invoices)
         return invoices
@@ -501,67 +603,111 @@ class MainController(QObject):
 
         # Purchase
         vouchers = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
 
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
+
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
             
             temp_dict["voucher_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
+
             temp_dict["invoice_date"] = datetime.strptime(invoice_date, "%Y%m%d").strftime("%d-%m-%Y")
             temp_dict["supplier_voucher_no"] = voucher.findtext("REFERENCE")
             supplier_voucher_date = voucher.findtext("REFERENCEDATE")
-            temp_dict["supplier_voucher_date"] = datetime.strptime(supplier_voucher_date, "%Y%m%d").strftime("%d-%m-%Y")
-            # temp_dict["supplier_voucher_date"] = voucher.findtext("REFERENCEDATE")
+            
+            if supplier_voucher_date:
+                temp_dict["supplier_voucher_date"] = datetime.strptime(supplier_voucher_date, "%Y%m%d").strftime("%d-%m-%Y")
+            else:
+                temp_dict["supplier_voucher_date"] = None
+            
             temp_dict["party_name"] = voucher.findtext("PARTYLEDGERNAME")
-
-            # placeOfSupply = voucher.findtext("PLACEOFSUPPLY")
-            # placeOfSupply = tally_mapping_state[placeOfSupply]
-            # temp_dict["placeOfSupply"] = placeOfSupply.get('id')
             temp_dict["placeOfSupply"] = voucher.findtext("PLACEOFSUPPLY")
 
+            has_inventory = False
+            inventory_entries = voucher.findall(".//ALLINVENTORYENTRIES.LIST")
+            for item in inventory_entries:
+                if item.findtext("STOCKITEMNAME"):
+                    has_inventory = True
+                    break
+
             items = []
-            for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
-                temp_item = {}
-                temp_item["item_name"] = item.findtext("STOCKITEMNAME")
-                temp_item["category"] = "Inventory"
+            if has_inventory:
+                for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
+                    temp_item = {}
+                    temp_item["item_name"] = item.findtext("STOCKITEMNAME")
+                    temp_item["category"] = "Inventory"
 
-                uml = item.findtext("BILLEDQTY")[-3:]
-                uml = uml.lower()
-                uml = measurement[uml]
-                temp_item["uml"] = uml
-                
-                temp_item["qty"] = float(item.findtext("BILLEDQTY")[:-4] or 0)
-                temp_item["rate"] = float(item.findtext("RATE")[:-4] or 0)
-                temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
+                    quantity, unit = Utils.parse_tally_qty(item.findtext("BILLEDQTY"))
+                    rate, unit = Utils.parse_tally_qty(item.findtext("RATE"))
 
-                if float(item.findtext("DISCOUNT") or 0):
-                    temp_item["discount_type"] = "%"
-                    temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
-                
-                gst_rate = 0
-                tax_type = ""
-                for rate_item in item.findall("RATEDETAILS.LIST"):
-                    tax_type = rate_item.findtext("GSTRATEDUTYHEAD")
-                    if tax_type in ["CGST", "SGST/UTGST", "SGST"]:
-                        gst_rate += float(rate_item.findtext("GSTRATE"))
-                    elif tax_type == "IGST":
-                        gst_rate = float(rate_item.findtext("GSTRATE"))
+                    temp_item["uml"] = measurement[unit] if unit in measurement.keys() else 30
+                    temp_item["qty"] = quantity
+                    temp_item["rate"] = rate
+                    temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
 
-                temp_item["gst_rate"] = gst_rate
-                if tax_type == "IGST":
-                    temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
-                else:
-                    temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
-                    temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                    if float(item.findtext("DISCOUNT") or 0):
+                        temp_item["discount_type"] = "%"
+                        temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
+                    
+                    gst_rate = 0
+                    tax_type = ""
+                    for rate_item in item.findall("RATEDETAILS.LIST"):
+                        tax_type = rate_item.findtext("GSTRATEDUTYHEAD")
+                        if tax_type in ["CGST", "SGST/UTGST", "SGST"]:
+                            gst_rate += float(rate_item.findtext("GSTRATE"))
+                        elif tax_type == "IGST":
+                            gst_rate = float(rate_item.findtext("GSTRATE"))
 
-                temp_item["invoice_value"] = (temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0)
+                    temp_item["gst_rate"] = gst_rate
+                    if tax_type == "IGST":
+                        temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                    else:
+                        temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                        temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
 
-                items.append(temp_item)
-            
+                    temp_item["invoice_value"] = (temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0)
+
+                    items.append(temp_item)
+            else:
+                for ledger in voucher.findall(".//LEDGERENTRIES.LIST"):
+                    ledger_name = ledger.findtext("LEDGERNAME")
+                    amount = float(ledger.findtext("AMOUNT") or 0)
+
+                    if ledger_name != temp_dict.get('customer_name') and amount > 0:
+                        temp_item = {}
+                        temp_item["item_name"] = ledger_name
+                        temp_item["category"] = "Service"
+
+                        temp_item["qty"] = 1
+                        temp_item["rate"] = amount
+                        temp_item["taxable_value"] = amount
+ 
+                        gst_rate, tax_type = self.get_gst_rate(voucher, True)
+
+                        temp_item["gst_rate"] = gst_rate
+                        if tax_type == "IGST":
+                            temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                        else:
+                            temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                            temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+
+                        temp_item["invoice_value"] = round(amount + (temp_item.get('igst') or 0) + (temp_item.get('cgst') or 0) + (temp_item.get('sgst') or 0), 2)
+
+                        items.append(temp_item)
+
             temp_dict["items"] = items
             vouchers.append(temp_dict)
+
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["purchase"] = dublicate_invoice_flag
 
         # print("vouchers", vouchers)
         return vouchers
@@ -579,11 +725,18 @@ class MainController(QObject):
 
         # Sales
         invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
 
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
+
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
 
             temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
@@ -625,6 +778,8 @@ class MainController(QObject):
             temp_dict["items"] = []
             invoices.append(temp_dict)
 
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["receipt"] = dublicate_invoice_flag
         # print("invoices", invoices)
         return invoices
 
@@ -636,6 +791,100 @@ class MainController(QObject):
         request = requests.post(self.url, data=xml_request)
         response = request.text
 
+        # logging.debug(response)
+
+        response = Utils.clean_tally_xml(response)
+        root = ET.fromstring(response)
+
+        # Sales
+        payment_invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
+        expense_with_payment_invoices = []
+
+        for voucher in root.findall(".//VOUCHER"):
+            temp_dict = {}
+            payment_voucher = True
+
+            if not voucher.findtext("VOUCHERNUMBER"):
+                continue
+
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
+
+            temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
+            invoice_date = voucher.findtext("DATE")
+            temp_dict["invoice_date"] = datetime.strptime(invoice_date, "%Y%m%d").strftime("%d-%m-%Y")
+
+            amount = 0 
+            bank_name =""
+            party_name = []
+            transaction_type = ""
+
+            for item in voucher.findall(".//ALLLEDGERENTRIES.LIST"):
+                if item.findtext("ISDEEMEDPOSITIVE") == "No":
+                    bank_name = item.findtext("LEDGERNAME")
+                    amount = abs(float(item.findtext("AMOUNT") or 0)) 
+                else:
+                    ledger_name = item.findtext("LEDGERNAME")
+                    if ledger_name.lower() in self.ledger_category_map.keys():
+                        category = self.ledger_category_map[ledger_name.lower()]
+                        if category.lower() in ['expenses (direct)', 'expenses (indirect)', 'indirect expenses', 'direct expenses']:
+                            payment_voucher = False
+
+                    party_name.append({
+                        "name": ledger_name,
+                        "amount": abs(float(item.findtext("AMOUNT") or 0))
+                    })
+            
+                for sub_item in item.findall(".//BANKALLOCATIONS.LIST"):
+                    transaction_type = sub_item.findtext("TRANSACTIONTYPE")
+                
+            tally_transaction_type_map = {
+                "ATM": "Others", 
+                "Card": "Others", 
+                # "Cash": "Cash/Deposit", 
+                "Cheque": "Cheque/DDNo", 
+                "ECS": "Others", 
+                "e-Fund Transfer": "Others", 
+                "Electronic Cheque": "Others", 
+                "Electronic DD/PO": "Others", 
+                "UPI": "Others", 
+                "Others": "Others"
+            }
+
+            temp_dict["customer_name"] = json.dumps(party_name)
+            temp_dict["amount"] = amount
+            temp_dict["mode"] = "On Account"
+            temp_dict["bank_name"] = bank_name
+            temp_dict["transaction_type"] = tally_transaction_type_map[transaction_type]
+            temp_dict["narration"] = voucher.findtext("NARRATION")
+
+            temp_dict["items"] = []
+            if payment_voucher:
+                payment_invoices.append(temp_dict)
+            else:
+                expense_with_payment_invoices.append(temp_dict)
+
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["payment"] = dublicate_invoice_flag
+
+        # print("invoices", expense_with_payment_invoices)
+        return {
+            "payment_invoices": payment_invoices,
+            "expense_with_payment_invoices": expense_with_payment_invoices 
+        }
+
+    async def get_tally_contra(self, start_date, end_date):
+        from_date = start_date.strftime("%d-%b-%Y")
+        to_date   = end_date.strftime("%d-%b-%Y")
+
+        xml_request  = contra_tdl.format(from_date=from_date, to_date=to_date)
+        request = requests.post(self.url, data=xml_request)
+        response = request.text
+
         # print("response", response)
 
         response = Utils.clean_tally_xml(response)
@@ -643,29 +892,40 @@ class MainController(QObject):
 
         # Sales
         invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
 
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
 
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
+
             temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
             temp_dict["invoice_date"] = datetime.strptime(invoice_date, "%Y%m%d").strftime("%d-%m-%Y")
-            temp_dict["customer_name"] = voucher.findtext("PARTYLEDGERNAME")
 
             amount = 0 
             bank_name =""
+            party_name = []
             transaction_type = ""
             for item in voucher.findall(".//ALLLEDGERENTRIES.LIST"):
-                ledger_name = item.findtext("LEDGERNAME")
-                if ledger_name != temp_dict.get('customer_name'):
+                if item.findtext("ISDEEMEDPOSITIVE") == "No":
                     bank_name = item.findtext("LEDGERNAME")
+                    amount = abs(float(item.findtext("AMOUNT") or 0)) 
+                else:
+                    ledger_name = item.findtext("LEDGERNAME")
+                    party_name.append({
+                        "name": ledger_name,
+                        "amount": abs(float(item.findtext("AMOUNT") or 0))
+                    })
 
                 for sub_item in item.findall(".//BANKALLOCATIONS.LIST"):
                     transaction_type = sub_item.findtext("TRANSACTIONTYPE")
-                
-                amount = abs(float(item.findtext("AMOUNT") or 0)) 
 
             tally_transaction_type_map = {
                 "ATM": "Others", 
@@ -680,14 +940,22 @@ class MainController(QObject):
                 "Others": "Others"
             }
 
+            temp_dict["customer_name"] = json.dumps(party_name)
+            temp_dict["bank_name"] = bank_name
             temp_dict["amount"] = amount
             temp_dict["mode"] = "On Account"
-            temp_dict["bank_name"] = bank_name
-            temp_dict["transaction_type"] = tally_transaction_type_map[transaction_type]
-            temp_dict["narration"] = voucher.findtext("NARRATION")
+            temp_dict["transaction_type"] = ""
+            if transaction_type:
+                if transaction_type in tally_transaction_type_map.keys():
+                    temp_dict["transaction_type"] = tally_transaction_type_map[transaction_type]
+
+            temp_dict["narration"] = (voucher.findtext("NARRATION") or "")
 
             temp_dict["items"] = []
             invoices.append(temp_dict)
+
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["contra"] = dublicate_invoice_flag
 
         # print("invoices", invoices)
         return invoices
@@ -707,11 +975,18 @@ class MainController(QObject):
 
         # Sales
         invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
 
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
+
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
 
             temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
@@ -719,47 +994,83 @@ class MainController(QObject):
             temp_dict["customer_name"] = voucher.findtext("PARTYLEDGERNAME")
             temp_dict["placeOfSupply"] = voucher.findtext("PLACEOFSUPPLY")
 
+            has_inventory = False
+            inventory_entries = voucher.findall(".//ALLINVENTORYENTRIES.LIST")
+            for item in inventory_entries:
+                if item.findtext("STOCKITEMNAME"):
+                    has_inventory = True
+                    break
+
             items = []
-            for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
-                temp_item = {}
-                temp_item["item_name"] = item.findtext("STOCKITEMNAME")
-                temp_item["category"] = "Inventory"
+            if has_inventory:
+                for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
+                    temp_item = {}
+                    temp_item["item_name"] = item.findtext("STOCKITEMNAME")
+                    temp_item["category"] = "Inventory"
 
-                uml = item.findtext("BILLEDQTY")[-3:]
-                uml = uml.lower()
-                uml = measurement[uml]
-                temp_item["uml"] = uml
+                    quantity, unit = Utils.parse_tally_qty(item.findtext("BILLEDQTY"))
+                    rate, unit = Utils.parse_tally_qty(item.findtext("RATE"))
 
-                temp_item["qty"] = float(item.findtext("BILLEDQTY")[:-4] or 0)
-                temp_item["rate"] = float(item.findtext("RATE")[:-4] or 0)
-                temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
+                    temp_item["uml"] = measurement[unit] if unit in measurement.keys() else 30
+                    temp_item["qty"] = quantity
+                    temp_item["rate"] = rate
+                    temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
 
-                if float(item.findtext("DISCOUNT") or 0):
-                    temp_item["discount_type"] = "%"
-                    temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
+                    if float(item.findtext("DISCOUNT") or 0):
+                        temp_item["discount_type"] = "%"
+                        temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
 
-                gst_rate = 0
-                tax_type = ""
-                for rate_item in item.findall("RATEDETAILS.LIST"):
-                    tax_type = rate_item.findtext("GSTRATEDUTYHEAD")
-                    if tax_type in ["CGST", "SGST/UTGST", "SGST"]:
-                        gst_rate += float(rate_item.findtext("GSTRATE"))
-                    elif tax_type == "IGST":
-                        gst_rate = float(rate_item.findtext("GSTRATE"))
+                    gst_rate = 0
+                    tax_type = ""
+                    for rate_item in item.findall("RATEDETAILS.LIST"):
+                        tax_type = rate_item.findtext("GSTRATEDUTYHEAD")
+                        if tax_type in ["CGST", "SGST/UTGST", "SGST"]:
+                            gst_rate += float(rate_item.findtext("GSTRATE"))
+                        elif tax_type == "IGST":
+                            gst_rate = float(rate_item.findtext("GSTRATE"))
 
-                temp_item["gst_rate"] = gst_rate
-                if tax_type == "IGST":
-                    temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
-                else:
-                    temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
-                    temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                    temp_item["gst_rate"] = gst_rate
+                    if tax_type == "IGST":
+                        temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                    else:
+                        temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                        temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
 
-                temp_item["invoice_value"] = (temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0)
+                    temp_item["invoice_value"] = (temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0)
 
-                items.append(temp_item)
+                    items.append(temp_item)
+            else:
+                for ledger in voucher.findall(".//LEDGERENTRIES.LIST"):
+                    ledger_name = ledger.findtext("LEDGERNAME")
+                    amount = float(ledger.findtext("AMOUNT") or 0)
+                    
+                    if ledger_name != temp_dict.get('customer_name') and amount > 0:
+                        temp_item = {}
+                        temp_item["item_name"] = ledger_name
+                        temp_item["category"] = "Service"
+
+                        temp_item["qty"] = 1
+                        temp_item["rate"] = amount
+                        temp_item["taxable_value"] = amount
+ 
+                        gst_rate, tax_type = self.get_gst_rate(voucher, True)
+
+                        temp_item["gst_rate"] = gst_rate
+                        if tax_type == "IGST":
+                            temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                        else:
+                            temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                            temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+
+                        temp_item["invoice_value"] = round(amount + (temp_item.get('igst') or 0) + (temp_item.get('cgst') or 0) + (temp_item.get('sgst') or 0), 2)
+
+                        items.append(temp_item)
 
             temp_dict["items"] = items
             invoices.append(temp_dict)
+
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["debit_note"] = dublicate_invoice_flag
 
         # print("invoices", invoices)
         return invoices
@@ -779,11 +1090,18 @@ class MainController(QObject):
 
         # Sales
         invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
 
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
+
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
 
             temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
@@ -791,40 +1109,77 @@ class MainController(QObject):
             temp_dict["customer_name"] = voucher.findtext("PARTYLEDGERNAME")
             temp_dict["placeOfSupply"] = voucher.findtext("PLACEOFSUPPLY")
 
+            has_inventory = False
+            inventory_entries = voucher.findall(".//ALLINVENTORYENTRIES.LIST")
+            for item in inventory_entries:
+                if item.findtext("STOCKITEMNAME"):
+                    has_inventory = True
+                    break
+
             items = []
-            for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
-                temp_item = {}
-                temp_item["item_name"] = item.findtext("STOCKITEMNAME")
-                temp_item["category"] = "Inventory"
+            if has_inventory:
+                for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
+                    temp_item = {}
+                    temp_item["item_name"] = item.findtext("STOCKITEMNAME")
+                    temp_item["category"] = "Inventory"
 
-                uml = item.findtext("BILLEDQTY")[-3:]
-                uml = uml.lower()
-                uml = measurement[uml]
-                temp_item["uml"] = uml
+                    quantity, unit = Utils.parse_tally_qty(item.findtext("BILLEDQTY"))
+                    rate, unit = Utils.parse_tally_qty(item.findtext("RATE"))
 
-                temp_item["qty"] = float(item.findtext("BILLEDQTY")[:-4] or 0)
-                temp_item["rate"] = float(item.findtext("RATE")[:-4] or 0)
-                temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
+                    temp_item["uml"] = measurement[unit] if unit in measurement.keys() else 30
+                    temp_item["qty"] = quantity
+                    temp_item["rate"] = rate
 
-                if float(item.findtext("DISCOUNT") or 0):
-                    temp_item["discount_type"] = "%"
-                    temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
+                    temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
 
-                gst_rate, tax_type = self.get_gst_rate(voucher, False)
-                temp_item["gst_rate"] = gst_rate
+                    if float(item.findtext("DISCOUNT") or 0):
+                        temp_item["discount_type"] = "%"
+                        temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
 
-                if tax_type == "IGST":
-                    temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
-                else:
-                    temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
-                    temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                    gst_rate, tax_type = self.get_gst_rate(voucher, False)
+                    temp_item["gst_rate"] = gst_rate
 
-                temp_item["invoice_value"] = round((temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0), 2)
+                    if tax_type == "IGST":
+                        temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                    else:
+                        temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                        temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
 
-                items.append(temp_item)
+                    temp_item["invoice_value"] = round((temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0), 2)
+
+                    items.append(temp_item)
+            else:
+                for ledger in voucher.findall(".//LEDGERENTRIES.LIST"):
+                    ledger_name = ledger.findtext("LEDGERNAME")
+                    amount = float(ledger.findtext("AMOUNT") or 0)
+                    
+                    if ledger_name != temp_dict.get('customer_name') and amount > 0:
+                        temp_item = {}
+                        temp_item["item_name"] = ledger_name
+                        temp_item["category"] = "Service"
+
+                        temp_item["qty"] = 1
+                        temp_item["rate"] = amount
+                        temp_item["taxable_value"] = amount
+ 
+                        gst_rate, tax_type = self.get_gst_rate(voucher, True)
+
+                        temp_item["gst_rate"] = gst_rate
+                        if tax_type == "IGST":
+                            temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                        else:
+                            temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                            temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+
+                        temp_item["invoice_value"] = round(amount + (temp_item.get('igst') or 0) + (temp_item.get('cgst') or 0) + (temp_item.get('sgst') or 0), 2)
+
+                        items.append(temp_item)
 
             temp_dict["items"] = items
             invoices.append(temp_dict)
+
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["credit_note"] = dublicate_invoice_flag
 
         # print("invoices", invoices)
         return invoices
@@ -844,11 +1199,18 @@ class MainController(QObject):
 
         # Sales
         invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
 
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
+
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
 
             temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
@@ -856,40 +1218,76 @@ class MainController(QObject):
             temp_dict["customer_name"] = voucher.findtext("PARTYLEDGERNAME")
             temp_dict["placeOfSupply"] = voucher.findtext("PLACEOFSUPPLY")
 
+            has_inventory = False
+            inventory_entries = voucher.findall(".//ALLINVENTORYENTRIES.LIST")
+            for item in inventory_entries:
+                if item.findtext("STOCKITEMNAME"):
+                    has_inventory = True
+                    break
+
             items = []
-            for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
-                temp_item = {}
-                temp_item["item_name"] = item.findtext("STOCKITEMNAME")
-                temp_item["category"] = "Inventory"
+            if has_inventory:
+                for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
+                    temp_item = {}
+                    temp_item["item_name"] = item.findtext("STOCKITEMNAME")
+                    temp_item["category"] = "Inventory"
 
-                uml = item.findtext("BILLEDQTY")[-3:]
-                uml = uml.lower()
-                uml = measurement[uml]
-                temp_item["uml"] = uml
+                    quantity, unit = Utils.parse_tally_qty(item.findtext("BILLEDQTY"))
+                    rate, unit = Utils.parse_tally_qty(item.findtext("RATE"))
 
-                temp_item["qty"] = float(item.findtext("BILLEDQTY")[:-4] or 0)
-                temp_item["rate"] = float(item.findtext("RATE")[:-4] or 0)
-                temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
+                    temp_item["uml"] = measurement[unit] if unit in measurement.keys() else 30
+                    temp_item["qty"] = quantity
+                    temp_item["rate"] = rate
+                    temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
 
-                if float(item.findtext("DISCOUNT") or 0):
-                    temp_item["discount_type"] = "%"
-                    temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
+                    if float(item.findtext("DISCOUNT") or 0):
+                        temp_item["discount_type"] = "%"
+                        temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
 
-                gst_rate, tax_type = self.get_gst_rate(voucher, True)
+                    gst_rate, tax_type = self.get_gst_rate(voucher, True)
 
-                temp_item["gst_rate"] = gst_rate
-                if tax_type == "IGST":
-                    temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
-                else:
-                    temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
-                    temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                    temp_item["gst_rate"] = gst_rate
+                    if tax_type == "IGST":
+                        temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                    else:
+                        temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                        temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
 
-                temp_item["invoice_value"] = round((temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0), 2)
+                    temp_item["invoice_value"] = round((temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0), 2)
 
-                items.append(temp_item)
+                    items.append(temp_item)
+            else:
+                for ledger in voucher.findall(".//LEDGERENTRIES.LIST"):
+                    ledger_name = ledger.findtext("LEDGERNAME")
+                    amount = float(ledger.findtext("AMOUNT") or 0)
+                    
+                    if ledger_name != temp_dict.get('customer_name') and amount > 0:
+                        temp_item = {}
+                        temp_item["item_name"] = ledger_name
+                        temp_item["category"] = "Service"
 
+                        temp_item["qty"] = 1
+                        temp_item["rate"] = amount
+                        temp_item["taxable_value"] = amount
+ 
+                        gst_rate, tax_type = self.get_gst_rate(voucher, True)
+
+                        temp_item["gst_rate"] = gst_rate
+                        if tax_type == "IGST":
+                            temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                        else:
+                            temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                            temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+
+                        temp_item["invoice_value"] = round(amount + (temp_item.get('igst') or 0) + (temp_item.get('cgst') or 0) + (temp_item.get('sgst') or 0), 2)
+
+                        items.append(temp_item)
+            
             temp_dict["items"] = items
             invoices.append(temp_dict)
+
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["sale_order"] = dublicate_invoice_flag
 
         # print("invoices", invoices)
         return invoices
@@ -909,11 +1307,18 @@ class MainController(QObject):
 
         # Sales
         invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
 
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
+
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
 
             temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
@@ -921,47 +1326,83 @@ class MainController(QObject):
             temp_dict["customer_name"] = voucher.findtext("PARTYLEDGERNAME")
             temp_dict["placeOfSupply"] = voucher.findtext("PLACEOFSUPPLY")
 
+            has_inventory = False
+            inventory_entries = voucher.findall(".//ALLINVENTORYENTRIES.LIST")
+            for item in inventory_entries:
+                if item.findtext("STOCKITEMNAME"):
+                    has_inventory = True
+                    break
+
             items = []
-            for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
-                temp_item = {}
-                temp_item["item_name"] = item.findtext("STOCKITEMNAME")
-                temp_item["category"] = "Inventory"
+            if has_inventory:
+                for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
+                    temp_item = {}
+                    temp_item["item_name"] = item.findtext("STOCKITEMNAME")
+                    temp_item["category"] = "Inventory"
 
-                uml = item.findtext("BILLEDQTY")[-3:]
-                uml = uml.lower()
-                uml = measurement[uml]
-                temp_item["uml"] = uml
+                    quantity, unit = Utils.parse_tally_qty(item.findtext("BILLEDQTY"))
+                    rate, unit = Utils.parse_tally_qty(item.findtext("RATE"))
 
-                temp_item["qty"] = float(item.findtext("BILLEDQTY")[:-4] or 0)
-                temp_item["rate"] = float(item.findtext("RATE")[:-4] or 0)
-                temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
+                    temp_item["uml"] = measurement[unit] if unit in measurement.keys() else 30
+                    temp_item["qty"] = quantity
+                    temp_item["rate"] = rate
+                    temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
 
-                if float(item.findtext("DISCOUNT") or 0):
-                    temp_item["discount_type"] = "%"
-                    temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
+                    if float(item.findtext("DISCOUNT") or 0):
+                        temp_item["discount_type"] = "%"
+                        temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
 
-                gst_rate = 0
-                tax_type = ""
-                for rate_item in item.findall("RATEDETAILS.LIST"):
-                    tax_type = rate_item.findtext("GSTRATEDUTYHEAD")
-                    if tax_type in ["CGST", "SGST/UTGST", "SGST"]:
-                        gst_rate += float(rate_item.findtext("GSTRATE"))
-                    elif tax_type == "IGST":
-                        gst_rate = float(rate_item.findtext("GSTRATE"))
+                    gst_rate = 0
+                    tax_type = ""
+                    for rate_item in item.findall("RATEDETAILS.LIST"):
+                        tax_type = rate_item.findtext("GSTRATEDUTYHEAD")
+                        if tax_type in ["CGST", "SGST/UTGST", "SGST"]:
+                            gst_rate += float(rate_item.findtext("GSTRATE"))
+                        elif tax_type == "IGST":
+                            gst_rate = float(rate_item.findtext("GSTRATE"))
 
-                temp_item["gst_rate"] = gst_rate
-                if tax_type == "IGST":
-                    temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
-                else:
-                    temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
-                    temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                    temp_item["gst_rate"] = gst_rate
+                    if tax_type == "IGST":
+                        temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                    else:
+                        temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                        temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
 
-                temp_item["invoice_value"] = (temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0)
+                    temp_item["invoice_value"] = (temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0)
 
-                items.append(temp_item)
+                    items.append(temp_item)
+            else:
+                for ledger in voucher.findall(".//LEDGERENTRIES.LIST"):
+                    ledger_name = ledger.findtext("LEDGERNAME")
+                    amount = float(ledger.findtext("AMOUNT") or 0)
+                    
+                    if ledger_name != temp_dict.get('customer_name') and amount > 0:
+                        temp_item = {}
+                        temp_item["item_name"] = ledger_name
+                        temp_item["category"] = "Service"
 
+                        temp_item["qty"] = 1
+                        temp_item["rate"] = amount
+                        temp_item["taxable_value"] = amount
+ 
+                        gst_rate, tax_type = self.get_gst_rate(voucher, True)
+
+                        temp_item["gst_rate"] = gst_rate
+                        if tax_type == "IGST":
+                            temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                        else:
+                            temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                            temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+
+                        temp_item["invoice_value"] = round(amount + (temp_item.get('igst') or 0) + (temp_item.get('cgst') or 0) + (temp_item.get('sgst') or 0), 2)
+
+                        items.append(temp_item)
+            
             temp_dict["items"] = items
             invoices.append(temp_dict)
+
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["purchase_order"] = dublicate_invoice_flag
 
         # print("invoices", invoices)
         return invoices
@@ -974,18 +1415,25 @@ class MainController(QObject):
         request = requests.post(self.url, data=xml_request)
         response = request.text
 
-        print(response)
+        # print(response)
 
         response = Utils.clean_tally_xml(response)
         root = ET.fromstring(response)
 
         # Sales
         invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
 
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
+
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
 
             temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
@@ -993,48 +1441,76 @@ class MainController(QObject):
             temp_dict["customer_name"] = voucher.findtext("PARTYLEDGERNAME")
             temp_dict["placeOfSupply"] = voucher.findtext("PLACEOFSUPPLY")
 
+            has_inventory = False
+            inventory_entries = voucher.findall(".//ALLINVENTORYENTRIES.LIST")
+            for item in inventory_entries:
+                if item.findtext("STOCKITEMNAME"):
+                    has_inventory = True
+                    break
+
             items = []
-            for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
-                temp_item = {}
-                temp_item["item_name"] = item.findtext("STOCKITEMNAME")
-                temp_item["category"] = "Inventory"
+            if has_inventory:
+                for item in voucher.findall(".//ALLINVENTORYENTRIES.LIST"):
+                    temp_item = {}
+                    temp_item["item_name"] = item.findtext("STOCKITEMNAME")
+                    temp_item["category"] = "Inventory"
 
-                uml = item.findtext("BILLEDQTY")[-3:]
-                uml = uml.lower()
-                uml = measurement[uml]
-                temp_item["uml"] = uml
+                    quantity, unit = Utils.parse_tally_qty(item.findtext("BILLEDQTY"))
+                    rate, unit = Utils.parse_tally_qty(item.findtext("RATE"))
 
-                temp_item["qty"] = float(item.findtext("BILLEDQTY")[:-4] or 0)
-                temp_item["rate"] = float(item.findtext("RATE")[:-4] or 0)
-                temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
+                    temp_item["uml"] = measurement[unit] if unit in measurement.keys() else 30
+                    temp_item["qty"] = quantity
+                    temp_item["rate"] = rate
+                    temp_item["taxable_value"] = abs(float(item.findtext("AMOUNT") or 0))
 
-                if float(item.findtext("DISCOUNT") or 0):
-                    temp_item["discount_type"] = "%"
-                    temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
+                    if float(item.findtext("DISCOUNT") or 0):
+                        temp_item["discount_type"] = "%"
+                        temp_item["discount"] = float(item.findtext("DISCOUNT") or 0)
 
-                # gst_rate = 0
-                # tax_type = ""
-                # for rate_item in item.findall("RATEDETAILS.LIST"):
-                #     tax_type = rate_item.findtext("GSTRATEDUTYHEAD")
-                #     if tax_type in ["CGST", "SGST/UTGST", "SGST"]:
-                #         gst_rate += float(rate_item.findtext("GSTRATE"))
-                #     elif tax_type == "IGST":
-                #         gst_rate = float(rate_item.findtext("GSTRATE"))
+                    gst_rate, tax_type = self.get_gst_rate(voucher, True)
 
-                gst_rate, tax_type = self.get_gst_rate(voucher, True)
+                    temp_item["gst_rate"] = gst_rate
+                    if tax_type == "IGST":
+                        temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                    else:
+                        temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                        temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
 
-                temp_item["gst_rate"] = gst_rate
-                if tax_type == "IGST":
-                    temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
-                else:
-                    temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
-                    temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                    temp_item["invoice_value"] = round((temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0), 2)
+                    items.append(temp_item)
+            else:
+                for ledger in voucher.findall(".//LEDGERENTRIES.LIST"):
+                    ledger_name = ledger.findtext("LEDGERNAME")
+                    amount = float(ledger.findtext("AMOUNT") or 0)
+                    
+                    if ledger_name != temp_dict.get('customer_name') and amount > 0:
+                        temp_item = {}
+                        temp_item["item_name"] = ledger_name
+                        temp_item["category"] = "Service"
 
-                temp_item["invoice_value"] = round((temp_item["taxable_value"] or 0) + (temp_item.get("igst") or 0) + (temp_item.get("cgst") or 0) + (temp_item.get("sgst") or 0), 2)
-                items.append(temp_item)
+                        temp_item["qty"] = 1
+                        temp_item["rate"] = amount
+                        temp_item["taxable_value"] = amount
+ 
+                        gst_rate, tax_type = self.get_gst_rate(voucher, True)
+
+                        temp_item["gst_rate"] = gst_rate
+                        if tax_type == "IGST":
+                            temp_item["igst"] = round((temp_item["taxable_value"] * gst_rate) / 100, 2)
+                        else:
+                            temp_item["cgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+                            temp_item["sgst"] = round((temp_item["taxable_value"] * gst_rate) / 200, 2)
+
+                        temp_item["invoice_value"] = round(amount + (temp_item.get('igst') or 0) + (temp_item.get('cgst') or 0) + (temp_item.get('sgst') or 0), 2)
+
+                        items.append(temp_item)
+            
 
             temp_dict["items"] = items
             invoices.append(temp_dict)
+
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["delivery_challan"] = dublicate_invoice_flag
 
         # print("invoices", invoices)
         return invoices
@@ -1054,23 +1530,36 @@ class MainController(QObject):
 
         # Sales
         invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
 
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
+
             temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
             temp_dict["invoice_date"] = datetime.strptime(invoice_date, "%Y%m%d").strftime("%d-%m-%Y")
 
-            items = []
             party_name = ""
             nature_name = ""
             total_amount = 0
+            party_items = []
+            nature_items = []
             for item in voucher.findall(".//ALLLEDGERENTRIES.LIST"):
                 if item.findtext("ISDEEMEDPOSITIVE") == "Yes":
-                    total_amount += abs(float(item.findtext("AMOUNT") or 0) )
-                    party_name = item.findtext("LEDGERNAME")
+                    total_amount += abs(float(item.findtext("AMOUNT") or 0))
+                    if not party_name:
+                        party_name = item.findtext("LEDGERNAME")
+                    temp_item = {}
+                    temp_item["partyName"] = item.findtext("LEDGERNAME")
+                    temp_item["partyAmount"] = abs(float(item.findtext("AMOUNT") or 0))
+                    party_items.append(temp_item)
                 else:
                     temp_item = {}
                     if not nature_name:
@@ -1078,15 +1567,20 @@ class MainController(QObject):
                     temp_item["nature_name"] = item.findtext("LEDGERNAME")
                     temp_item["amount"] = item.findtext("AMOUNT")
 
-                    items.append(temp_item)
+                    nature_items.append(temp_item)
 
             temp_dict["party_name"] = party_name
             temp_dict["nature_name"] = nature_name
             temp_dict["amount"] = total_amount
             temp_dict["narration"] = voucher.findtext("NARRATION")
 
-            temp_dict["items"] = items
+            temp_dict["party_items"] = json.dumps(party_items)
+            temp_dict["nature_items"] = json.dumps(nature_items)
+            temp_dict["items"] = []
             invoices.append(temp_dict)
+
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["journal"] = dublicate_invoice_flag
 
         # print("invoices", invoices)
         return invoices
@@ -1106,11 +1600,18 @@ class MainController(QObject):
 
         # Sales
         invoices = []
+        dublicate_invoice = []
+        dublicate_invoice_flag = False
         for voucher in root.findall(".//VOUCHER"):
             temp_dict = {}
 
             if not voucher.findtext("VOUCHERNUMBER"):
                 continue
+
+            if voucher.findtext("VOUCHERNUMBER") in dublicate_invoice:
+                dublicate_invoice_flag = True
+            else:
+                dublicate_invoice.append(voucher.findtext("VOUCHERNUMBER"))
 
             temp_dict["invoice_no"] = voucher.findtext("VOUCHERNUMBER")
             invoice_date = voucher.findtext("DATE")
@@ -1126,6 +1627,7 @@ class MainController(QObject):
                 temp_item["qty"] = float(item.findtext("BILLEDQTY")[:-4] or 0)
                 temp_item["rate"] = float(item.findtext("RATE")[:-4] or 0)
                 temp_item["amount"] = abs(float(item.findtext("AMOUNT") or 0))
+                temp_item["category"] = "Inventory"
 
                 if item.findtext("ISDEEMEDPOSITIVE") == "Yes":
                     product_items.append(temp_item)
@@ -1140,7 +1642,10 @@ class MainController(QObject):
             temp_dict["items"] = []
             invoices.append(temp_dict)
 
-        print("invoices", invoices)
+        if dublicate_invoice_flag:
+            self.dublicate_invoice["stock_journal"] = dublicate_invoice_flag
+
+        # print("invoices", invoices)
         return invoices
 
 
@@ -1150,15 +1655,16 @@ class MainController(QObject):
         self.busy_status = ConnectorStatus.PENDING
         self.busy_status_changed.emit(self.busy_status)
         
+        self.url = f"http://localhost:981/busyapi"
+
         self._add_log(LogLevel.INFO, f"Attempting to connect to BUSY via DSN: {dsn}", "BUSY")
         
-        QTimer.singleShot(1500, self._simulate_busy_connection)
+        QTimer.singleShot(1000, self._busy_connection)
         return True
     
-    def _simulate_busy_connection(self):
+    def _busy_connection(self):
         """Simulate BUSY connection result"""
-        import random
-        success = random.choice([True, True, False])
+        success = self.get_busy_companies()
         
         if success:
             self.busy_status = ConnectorStatus.CONNECTED
@@ -1349,10 +1855,11 @@ class MainController(QObject):
         # ✅ limit concurrency (VERY IMPORTANT)
         semaphore = asyncio.Semaphore(5)
 
+        # section_name: (api_url, dict_key)
         mapping = {
             "Ledgers": ("importLedger", "ledgers"),
             "Stocks": ("importStocks", "stocks"),
-            "Sales": ("slaes", "sales"),
+            "Sales": ("sales", "sales"),
             "Purchase": ("purchase", "purchase"),
             "Credit Note": ("creditNote", "credit_note"),
             "Debit Note": ("debitNote", "debit_note"),
@@ -1361,6 +1868,7 @@ class MainController(QObject):
             "Delivery Challan": ("deliveryChallan", "delivery_challan"),
             "Receipt": ("receipt", "receipt"),
             "Payment": ("payment", "payment"),
+            "Contra": ("payment", "contra"),
             "Journal": ("jurnal", "journal"),
             "Stock Journal": ("stock_journal", "stock_journal"),
         }
@@ -1369,8 +1877,17 @@ class MainController(QObject):
             for dtype in config.selected_data_types:
                 if dtype in mapping:
                     endpoint, key = mapping[dtype]
-                    tasks.append(send(endpoint, key))
-                    task_names.append(dtype)
+                    if dtype == "Payment":
+                        if "expense_with_payment" in data.keys():
+                            tasks.append(send("expense_with_payment", "expense_with_payment"))
+                        else:
+                            tasks.append(send(endpoint, key))
+                        
+                        task_names.append(dtype)
+                    else:
+                        tasks.append(send(endpoint, key))
+                        task_names.append(dtype)
+
 
             # 🚀 PARALLEL CLOUD UPLOAD
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -1424,3 +1941,4 @@ class MainController(QObject):
             ConnectorStatus.ERROR: "#9C27B0"
         }
         return colors.get(status, "#757575")
+    

@@ -165,8 +165,9 @@ class DataTableWidget(QTableWidget):
                         # Remove commas and convert to float
                         clean_value = str(cell_data).replace(',', '')
                         float_value = float(clean_value)
-                        formatted_value = f"{float_value:,.2f}"
-                        item.setText(formatted_value)
+                        # formatted_value = f"{float_value:,.2f}"
+                        # item.setText(formatted_value)
+                        item.setText(float_value)
                         item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                     except:
                         item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)

@@ -180,6 +180,13 @@ class MockData:
                 "data": accounting_data.get('payment', []) if accounting_data.get('payment', []) else []
             },
             {
+                "name": "Contra",
+                "icon": "🔄",
+                "description": "Contra Vouchers",
+                "columns": ["Contra No", "Date", "From Account", "To Account", "Amount", "Mode", "Transaction Type", "Narration"],
+                "data": accounting_data.get('contra', []) if accounting_data.get('contra', []) else []
+            },
+            {
                 "name": "Journal",
                 "icon": "📒",
                 "description": "Journal Vouchers",
