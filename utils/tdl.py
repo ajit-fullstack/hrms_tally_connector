@@ -37,30 +37,6 @@ company_details_xml = """
   </ENVELOPE>
 """
 
-company_details_bussy_xml = """<REQUEST>
-    <HEADER>
-        <REQUESTTYPE>Get</REQUESTTYPE>
-        <OBJECT>Company</OBJECT>
-    </HEADER>
-    <BODY>
-        <FIELDS>
-            <FIELD>Name</FIELD>
-            <FIELD>Address1</FIELD>
-            <FIELD>Address2</FIELD>
-            <FIELD>Address3</FIELD>
-            <FIELD>City</FIELD>
-            <FIELD>State</FIELD>
-            <FIELD>Country</FIELD>
-            <FIELD>Pincode</FIELD>
-            <FIELD>GSTIN</FIELD>
-            <FIELD>PAN</FIELD>
-            <FIELD>Email</FIELD>
-            <FIELD>Phone</FIELD>
-        </FIELDS>
-    </BODY>
-</REQUEST>"""
-
-
 stocks_tdl = """
 <ENVELOPE>
   <HEADER>
@@ -143,9 +119,18 @@ ledger_tdl = """
               TAXTYPE,
               OPENINGBALANCE,
               CLOSINGBALANCE,
-              ISDEEMEDPOSITIVE
+              ISDEEMEDPOSITIVE,
+              LEDGSTREGDETAILS.GSTIN,
             </FETCH>
-          </COLLECTION>
+            
+            <SUBCOLLECTION NAME="GSTDetails">
+              <TYPE>LEDGSTREGDETAILS</TYPE>
+              <FETCH>
+                GSTIN
+              </FETCH>
+            </SUBCOLLECTION>
+
+            </COLLECTION>
         </TDLMESSAGE>
       </TDL>
 
@@ -774,33 +759,6 @@ journal_tdl = """
 </ENVELOPE>
 """
 
-# opening_balance_tdl = """
-# <ENVELOPE>
-#   <HEADER>
-#     <TALLYREQUEST>Export Data</TALLYREQUEST>
-#   </HEADER>
-#   <BODY>
-#     <EXPORTDATA>
-#         <REQUESTDESC>
-#           <REPORTNAME>Collection</REPORTNAME>
-#           <STATICVARIABLES>
-#             <SVFROMDATE>{date_str}</SVFROMDATE>
-#             <SVTODATE>{date_str}</SVTODATE>
-#           </STATICVARIABLES>
-#         </REQUESTDESC>
-#         <REQUESTDATA>
-#           <TALLYMESSAGE>
-#             <COLLECTION NAME="Py Trial Balance" ISMODIFY="No">
-#               <TYPE>Ledger</TYPE>
-#               <FETCH>Name, OpeningBalance, Debit, Credit, ClosingBalance</FETCH>
-#             </COLLECTION>
-#           </TALLYMESSAGE>
-#         </REQUESTDATA>
-#     </EXPORTDATA>
-#   </BODY>
-# </ENVELOPE>
-# """
-
 opening_balance_tdl = """
 <ENVELOPE>
   <HEADER>
@@ -841,4 +799,154 @@ opening_balance_tdl = """
 # acc no.:- 20027487151
 # dsl no:- 01123655542_wifi
 # leadline no.;- 01140586731
+
+
+
+# Busy xml requests
+company_details_bussy_xml = """
+<REQUEST>
+    <HEADER>
+        <REQUESTTYPE>Get</REQUESTTYPE>
+        <OBJECT>Company</OBJECT>
+    </HEADER>
+    <BODY>
+        <FIELDS>
+            <FIELD>Name</FIELD>
+            <FIELD>Address1</FIELD>
+            <FIELD>Address2</FIELD>
+            <FIELD>Address3</FIELD>
+            <FIELD>City</FIELD>
+            <FIELD>State</FIELD>
+            <FIELD>Country</FIELD>
+            <FIELD>Pincode</FIELD>
+            <FIELD>GSTIN</FIELD>
+            <FIELD>PAN</FIELD>
+            <FIELD>Email</FIELD>
+            <FIELD>Phone</FIELD>
+        </FIELDS>
+    </BODY>
+</REQUEST>"""
+
+ledger_busy_xml = """
+<REQUEST>
+    <HEADER>
+        <REQUESTTYPE>Get</REQUESTTYPE>
+        <OBJECT>Account</OBJECT>
+    </HEADER>
+    <BODY>
+        <FIELDS>
+            <FIELD>Name</FIELD>
+            <FIELD>Group</FIELD>
+            <FIELD>Address1</FIELD>
+            <FIELD>Address2</FIELD>
+            <FIELD>City</FIELD>
+            <FIELD>State</FIELD>
+            <FIELD>Country</FIELD>
+            <FIELD>Pincode</FIELD>
+            <FIELD>GSTIN</FIELD>
+            <FIELD>PAN</FIELD>
+            <FIELD>Email</FIELD>
+            <FIELD>Phone</FIELD>
+            <FIELD>OpeningBalance</FIELD>
+            <FIELD>DebitBalance</FIELD>
+            <FIELD>CreditBalance</FIELD>
+        </FIELDS>
+    </BODY>
+</REQUEST>"""
+
+stocks_busy_xml = """
+<REQUEST>
+    <HEADER>
+        <REQUESTTYPE>Get</REQUESTTYPE>
+        <OBJECT>Item</OBJECT>
+    </HEADER>
+    <BODY>
+        <FIELDS>
+            <FIELD>Name</FIELD>
+            <FIELD>Group</FIELD>
+            <FIELD>Category</FIELD>
+            <FIELD>Unit</FIELD>
+            <FIELD>HSNCode</FIELD>
+            <FIELD>GSTTaxRate</FIELD>
+            <FIELD>OpeningQty</FIELD>
+            <FIELD>OpeningValue</FIELD>
+            <FIELD>ClosingQty</FIELD>
+            <FIELD>ClosingValue</FIELD>
+            <FIELD>PurchaseRate</FIELD>
+            <FIELD>SaleRate</FIELD>
+        </FIELDS>
+    </BODY>
+</REQUEST>"""
+
+receipt_busy_xml = """
+<REQUEST>
+    <HEADER>
+        <REQUESTTYPE>Get</REQUESTTYPE>
+        <OBJECT>Voucher</OBJECT>
+    </HEADER>
+    <BODY>
+        <FILTERS>
+            <FILTER>
+                <NAME>VoucherType</NAME>
+                <VALUE>{voucher_type}</VALUE>
+            </FILTER>
+            <FILTER>
+                <NAME>DateRange</NAME>
+                <FROM>{from_date}</FROM>
+                <TO>{to_date}</TO>
+            </FILTER>
+        </FILTERS>
+
+        <FIELDS>
+            <FIELD>Date</FIELD>
+            <FIELD>VoucherNo</FIELD>
+            <FIELD>PartyName</FIELD>
+            <FIELD>Amount</FIELD>
+            <FIELD>Narration</FIELD>
+        </FIELDS>
+    </BODY>
+</REQUEST>"""
+
+stock_journal_busy_xml = """
+<REQUEST>
+    <HEADER>
+        <REQUESTTYPE>Get</REQUESTTYPE>
+        <OBJECT>Voucher</OBJECT>
+    </HEADER>
+    <BODY>
+        <FILTERS>
+            <FILTER>
+                <NAME>VoucherType</NAME>
+                <VALUE>Stock Journal</VALUE>
+            </FILTER>
+            <FILTER>
+                <NAME>DateRange</NAME>
+                <FROM>{from_date}</FROM>
+                <TO>{to_date}</TO>
+            </FILTER>
+        </FILTERS>
+
+        <!-- Voucher Level -->
+        <FIELDS>
+            <FIELD>Date</FIELD>
+            <FIELD>VoucherNo</FIELD>
+            <FIELD>Narration</FIELD>
+        </FIELDS>
+
+        <!-- Inventory Details -->
+        <CHILDFIELDS>
+            <CHILDFIELD>
+                <NAME>InventoryEntries</NAME>
+                <FIELDS>
+                    <FIELD>ItemName</FIELD>
+                    <FIELD>Qty</FIELD>
+                    <FIELD>Unit</FIELD>
+                    <FIELD>Rate</FIELD>
+                    <FIELD>Amount</FIELD>
+                </FIELDS>
+            </CHILDFIELD>
+        </CHILDFIELDS>
+
+    </BODY>
+</REQUEST>"""
 

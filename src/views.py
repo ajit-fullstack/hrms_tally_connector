@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QListWidget, QListWidgetItem,
     QButtonGroup, QRadioButton, QDialog
 )
-from PySide6.QtCore import Qt, QDate, QTimer, Signal
+from PySide6.QtCore import Qt, QDate, QTimer, Signal, QThread
 from PySide6.QtGui import QFont, QColor, QTextCursor, QIcon
 
 from src.controllers import MainController
@@ -26,6 +26,21 @@ from src.data_manager import EnhancedDataView
 
 logging.basicConfig(filename="error.txt", format="%(asctime)s - %(message)s", level=logging.DEBUG)
 
+
+class AsyncWorker(QThread):
+    finished = Signal(object)
+    error = Signal(str)
+
+    def __init__(self, coro):
+        super().__init__()
+        self.coro = coro
+
+    def run(self):
+        try:
+            result = asyncio.run(self.coro)
+            self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
 
 class StatusIndicator(QLabel):
     """Custom status indicator widget"""
@@ -240,7 +255,7 @@ class InputPopup(QDialog):
         return self.input_field.text()
 
 class TallyConnectorTab(QWidget):
-    """Tally connec tor with reduced first row height"""
+    """Tally connector with reduced first row height"""
     
     def __init__(self, controller: MainController):
         super().__init__()
@@ -599,7 +614,7 @@ class TallyConnectorTab(QWidget):
 
                 # if data_type in ["Ledgers", "Stocks"]:
                 #     cb.setChecked(True)
-                if data_type in ["Sales"]:
+                if data_type in ["Stocks"]:
                     cb.setChecked(True)
 
                 self.data_checkboxes.append(cb)
@@ -757,7 +772,23 @@ class TallyConnectorTab(QWidget):
         self.test_btn.setText("🔗 Test Connection")
     
     def on_export_clicked(self):
-        asyncio.run(self.export_data())
+        # asyncio.run(self.export_data())
+        self.export_btn.setEnabled(False)
+        self.export_btn.setText("Exporting...")
+
+        self.worker = AsyncWorker(self.export_data())
+
+        self.worker.finished.connect(self.on_export_success)
+        self.worker.error.connect(self.on_export_error)
+
+        self.worker.start()
+
+    def on_export_success(self, result):
+        self.enable_buttons()
+
+    def on_export_error(self, error):
+        QMessageBox.warning(self, "Error", error)
+        self.enable_buttons()
 
     async def export_data(self):
         """Export Tally data"""
@@ -863,7 +894,23 @@ class TallyConnectorTab(QWidget):
         return formated_data
     
     def on_sync_clicked(self):
-        asyncio.run(self.sync_data())
+        # asyncio.run(self.sync_data())
+        self.sync_btn.setEnabled(False)
+        self.sync_btn.setText("Syncing...")
+
+        self.worker = AsyncWorker(self.sync_data())
+
+        self.worker.finished.connect(self.on_sync_success)
+        self.worker.error.connect(self.on_sync_error)
+
+        self.worker.start()
+
+    def on_sync_success(self, result):
+        self.enable_buttons()
+
+    def on_sync_error(self, error):
+        QMessageBox.warning(self, "Error", error)
+        self.enable_buttons()
 
     async def sync_data(self):
         """Sync Tally data"""
@@ -924,6 +971,9 @@ class BusyConnectorTab(QWidget):
         
         # Connect signals
         self.controller.busy_status_changed.connect(self.on_status_changed)
+
+        # Manually added 
+        self.exported_data = dict()
     
     def init_ui(self):
         """Initialize UI with smaller first row"""
@@ -1268,7 +1318,7 @@ class BusyConnectorTab(QWidget):
                 background-color: #cccccc;
             }
         """)
-        self.export_btn.clicked.connect(self.export_data)
+        self.export_btn.clicked.connect(self.on_export_clicked)
         
         self.sync_btn = QPushButton("🔄 Sync")
         self.sync_btn.setEnabled(False)
@@ -1291,7 +1341,7 @@ class BusyConnectorTab(QWidget):
                 background-color: #cccccc;
             }
         """)
-        self.sync_btn.clicked.connect(self.sync_data)
+        self.sync_btn.clicked.connect(self.on_sync_clicked)
         
         # Add buttons vertically
         action_layout.addWidget(self.export_btn)
@@ -1341,7 +1391,6 @@ class BusyConnectorTab(QWidget):
             cb.setChecked(checked)
             cb.blockSignals(False)
     
-
     def test_connection(self):
         """Test BUSY connection"""
         dsn = self.dsn_combo.currentText()
@@ -1372,7 +1421,10 @@ class BusyConnectorTab(QWidget):
         self.test_btn.setEnabled(True)
         self.test_btn.setText("🔗 Test Connection")
     
-    def export_data(self):
+    def on_export_clicked(self):
+        asyncio.run(self.export_data())
+
+    async def export_data(self):
         """Export BUSY data"""
         # Collect configuration
         config = BusyConfig(
@@ -1390,12 +1442,20 @@ class BusyConnectorTab(QWidget):
         self.export_btn.setText("Exporting...")
         
         # Call controller to export
-        success = self.controller.export_busy_data(config)
+        try:
+            success = self.controller.export_busy_data(config)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", str(e))
+            QTimer.singleShot(500, self.enable_buttons)
+            return
         
         # Re-enable buttons after delay
         QTimer.singleShot(1000, self.enable_buttons)
     
-    def sync_data(self):
+    def on_sync_clicked(self):
+        asyncio.run(self.sync_data())
+
+    async def sync_data(self):
         """Sync BUSY data"""
         # Collect configuration
         config = BusyConfig(
@@ -1413,7 +1473,12 @@ class BusyConnectorTab(QWidget):
         self.sync_btn.setText("Syncing...")
         
         # Call controller to sync
-        success = self.controller.sync_busy_data(config)
+        try:
+            success = self.controller.sync_busy_data(config)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", str(e))
+            QTimer.singleShot(500, self.enable_buttons)
+            return
         
         # Re-enable buttons after delay
         QTimer.singleShot(1000, self.enable_buttons)
