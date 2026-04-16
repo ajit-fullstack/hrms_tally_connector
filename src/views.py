@@ -3,25 +3,22 @@ UI with adjusted heights - smaller first row, larger second row
 """
 
 import asyncio, logging, json
-from datetime import datetime
-from typing import List, Optional
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTabWidget, QGroupBox, QLabel, QLineEdit,
     QPushButton, QComboBox, QCheckBox, QDateEdit,
-    QTextEdit, QTableWidget, QTableWidgetItem,
+    QMessageBox, QDialog, QTextEdit, 
     QStatusBar, QGridLayout, QScrollArea, QFrame,
-    QPlainTextEdit, QProgressBar, QMessageBox,
-    QSizePolicy, QSpacerItem, QSplitter, QHeaderView,
-    QAbstractItemView, QListWidget, QListWidgetItem,
-    QButtonGroup, QRadioButton, QDialog
 )
 from PySide6.QtCore import Qt, QDate, QTimer, Signal, QThread
-from PySide6.QtGui import QFont, QColor, QTextCursor, QIcon
+from PySide6.QtGui import QFont, QColor, QTextCursor
 
 from src.controllers import MainController
 from src.models import ConnectorStatus, LogLevel, LogEntry, TallyConfig, BusyConfig
 from src.data_manager import EnhancedDataView
+
+from datetime import datetime
+from utils.drop_down import country, state
 
 
 logging.basicConfig(filename="error.txt", format="%(asctime)s - %(message)s", level=logging.DEBUG)
@@ -232,28 +229,6 @@ class DashboardTab(QWidget):
         if last_sync:
             self.last_sync_label.setText(f"Last sync: {last_sync.strftime('%Y-%m-%d %H:%M:%S')}")
 
-class InputPopup(QDialog):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Dublicate Invoice Found")
-
-        layout = QVBoxLayout()
-
-        self.label = QLabel("Add a prefix to avoid duplication:")
-        self.input_field = QLineEdit()
-
-        self.ok_button = QPushButton("OK")
-        self.ok_button.clicked.connect(self.accept)
-
-        layout.addWidget(self.label)
-        layout.addWidget(self.input_field)
-        layout.addWidget(self.ok_button)
-
-        self.setLayout(layout)
-
-    def get_value(self):
-        return self.input_field.text()
-
 class TallyConnectorTab(QWidget):
     """Tally connector with reduced first row height"""
     
@@ -293,7 +268,8 @@ class TallyConnectorTab(QWidget):
                 border-radius: 6px;
                 margin-top: 6px;
                 padding-top: 2px;
-                min-width: 400px;
+                min-width: 600px;
+                max-width: 600px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
@@ -319,10 +295,11 @@ class TallyConnectorTab(QWidget):
         username_label = QLabel("Username:")
         username_label.setStyleSheet("font-weight: bold; font-size: 12px;")
 
-        self.username_input = QLineEdit("Ajitpathak0448@gmail.com")
+        self.username_input = QLineEdit("startupkhata@gmail.com")
+        # self.username_input = QLineEdit("anzarali.icai@gmail.com")
         self.username_input.setPlaceholderText("Username")
         self.username_input.setFixedHeight(INPUT_HEIGHT)
-        self.username_input.setFixedWidth(150)
+        self.username_input.setFixedWidth(200)
         self.username_input.setStyleSheet("font-size: 12px; padding: 2px;")
 
         # Password
@@ -333,7 +310,7 @@ class TallyConnectorTab(QWidget):
         self.password_input.setPlaceholderText("Password")
         self.password_input.setEchoMode(QLineEdit.Password)
         self.password_input.setFixedHeight(INPUT_HEIGHT)
-        self.password_input.setFixedWidth(150)
+        self.password_input.setFixedWidth(200)
         self.password_input.setStyleSheet("font-size: 12px; padding: 2px;")
 
         # Same row layout (saves height)
@@ -361,7 +338,7 @@ class TallyConnectorTab(QWidget):
 
         self.host_input = QLineEdit("localhost")
         self.host_input.setFixedHeight(INPUT_HEIGHT)
-        self.host_input.setFixedWidth(150)
+        self.host_input.setFixedWidth(200)
         self.host_input.setStyleSheet("font-size: 12px; padding: 2px;")
 
         # Port
@@ -370,7 +347,7 @@ class TallyConnectorTab(QWidget):
 
         self.port_input = QLineEdit("9000")
         self.port_input.setFixedHeight(INPUT_HEIGHT)
-        self.port_input.setFixedWidth(150)
+        self.port_input.setFixedWidth(200)
         self.port_input.setStyleSheet("font-size: 12px; padding: 2px;")
 
         form_layout.addWidget(host_label, 0, 0)
@@ -441,9 +418,10 @@ class TallyConnectorTab(QWidget):
                 font-size: 13px;
                 border: 2px solid #cccccc;
                 border-radius: 6px;
-                margin-top: 8px;
-                padding-top: 12px;
-                min-width: 400px;
+                margin-top: 10px;
+                padding: 12px;
+                min-width: 500px;
+                max-width: 500px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
@@ -500,144 +478,14 @@ class TallyConnectorTab(QWidget):
         
         date_group.setLayout(date_layout)
         top_layout.addWidget(date_group)
-        
-        # 3. Data Selection Group — UPDATED UI + SCROLL + HEADER CHECKBOX
-        data_group = QGroupBox("📊 Data Selection")   # No title text here
-        data_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                font-size: 13px;
-                border: 2px solid #cccccc;
-                border-radius: 6px;
-                background-color: #ffffff;
-                min-width: 400px;
-                max-width: 400px;
-            }
-        """)
-
-        outer_layout = QVBoxLayout()
-        outer_layout.setSpacing(6)
-        outer_layout.setContentsMargins(10, 10, 10, 10)
-        
-        # Scroll Area
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFixedHeight(140)
-        scroll.setStyleSheet("""
-            QScrollArea {
-                border: none;
-                background-color: #ffffff;
-            }
-            QScrollArea > QWidget > QWidget {
-                background-color: #ffffff;
-            }
-        """)
-
-        scroll_container = QWidget()
-        scroll_container.setStyleSheet("""
-            QWidget {
-                background-color: #ffffff;
-            }
-        """)
-        data_layout = QGridLayout(scroll_container)
-        data_layout.setSpacing(8)
-        data_layout.setContentsMargins(4, 4, 4, 4)
-
-        # Data Types
-        data_types = [
-            ("Select All", "Select All"),
-            ("📊 Ledgers", "Ledgers"),
-            ("📦 Stocks", "Stocks"),
-            ("💰 Sales", "Sales"),
-            ("🛒 Purchase", "Purchase"),
-            ("📝 Credit Note", "Credit Note"),
-            ("📋 Debit Note", "Debit Note"),
-            ("💵 Receipt", "Receipt"),
-            ("💳 Payment", "Payment"),
-            ("🔁 Contra", "Contra"),
-            ("📒 Journal", "Journal"),
-            ("📑 Sale Order", "Sale Order"),
-            ("🧾 Purchase Order", "Purchase Order"),
-            ("🏭 Stock Journal", "Stock Journal"),
-            ("🚚 Delivery Challan", "Delivery Challan"),
-        ]
-
-        row, col = 0, 0
-        self.data_checkboxes = []
-        for icon_text, data_type in data_types:
-            if data_type == "Select All":
-                select_all_cb = QCheckBox(icon_text)
-                select_all_cb.setToolTip("Check / Uncheck All")
-
-                select_all_cb.setProperty("data_type", data_type)
-                select_all_cb.setMinimumHeight(25)
-                select_all_cb.setStyleSheet("""
-                    QCheckBox {
-                        font-weight: bold;
-                        font-size: 13px;
-                        padding: 6px;
-                        border-radius: 4px;
-                    }
-                    QCheckBox:hover {
-                        background-color: #f5f7fa;
-                    }
-                    QCheckBox::indicator {
-                        width: 16px;
-                        height: 16px;
-                    }
-                """)
-
-                self.data_checkboxes.append(select_all_cb)
-                data_layout.addWidget(select_all_cb, row, col)
-                col += 1
-                select_all_cb.stateChanged.connect(self.toggle_all_data)
-            else:
-                cb = QCheckBox(icon_text)
-                cb.setProperty("data_type", data_type)
-                cb.setMinimumHeight(25)
-
-                cb.setStyleSheet("""
-                    QCheckBox {
-                        padding: 6px;
-                        font-size: 12px;
-                        border-radius: 4px;
-                        background-color: none;
-                    }
-                    QCheckBox:hover {
-                        background-color: #f5f7fa;
-                    }
-                    QCheckBox::indicator {
-                        width: 16px;
-                        height: 16px;
-                    }
-                """)
-
-                # if data_type in ["Ledgers", "Stocks"]:
-                #     cb.setChecked(True)
-                if data_type in ["Stocks"]:
-                    cb.setChecked(True)
-
-                self.data_checkboxes.append(cb)
-                data_layout.addWidget(cb, row, col)
-
-                col += 1
-                if col > 1:
-                    col = 0
-                    row += 1
-
-        scroll.setWidget(scroll_container)
-        outer_layout.addWidget(scroll)
-
-        data_group.setLayout(outer_layout)
-        top_layout.addWidget(data_group)
-
+                
         # Action Buttons (Right side, in ONE COLUMN) - COMPACT
         action_widget = QWidget()
         action_layout = QVBoxLayout()
-        action_layout.setAlignment(Qt.AlignRight | Qt.AlignTop)
+        action_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         action_layout.setSpacing(10)  # Reduced spacing
         
-        self.export_btn = QPushButton("📤 Export Data")
+        self.export_btn = QPushButton("📤 Import Data")
         self.export_btn.setEnabled(False)
         self.export_btn.setMinimumHeight(38)  # Reduced from 45
         self.export_btn.setMinimumWidth(130)  # Reduced from 140
@@ -690,7 +538,7 @@ class TallyConnectorTab(QWidget):
         action_widget.setLayout(action_layout)
         
         # Add action widget
-        top_layout.addWidget(action_widget, 0, Qt.AlignRight | Qt.AlignTop)
+        top_layout.addWidget(action_widget, 0, Qt.AlignLeft | Qt.AlignTop)
         
         top_section.setLayout(top_layout)
         main_layout.addWidget(top_section)
@@ -721,15 +569,6 @@ class TallyConnectorTab(QWidget):
         main_layout.addWidget(bottom_section, 1)  # Stretch factor 1 for remaining space
         
         self.setLayout(main_layout)
-    
-    def toggle_all_data(self, state):
-        """Header checkbox → Select/Deselect all"""
-
-        checked = bool(state)
-        for cb in self.data_checkboxes:
-            cb.blockSignals(True)
-            cb.setChecked(checked)
-            cb.blockSignals(False)
     
     def test_connection(self):
         """Test Tally connection"""
@@ -774,7 +613,7 @@ class TallyConnectorTab(QWidget):
     def on_export_clicked(self):
         # asyncio.run(self.export_data())
         self.export_btn.setEnabled(False)
-        self.export_btn.setText("Exporting...")
+        self.export_btn.setText("Importing...")
 
         self.worker = AsyncWorker(self.export_data())
 
@@ -792,17 +631,13 @@ class TallyConnectorTab(QWidget):
 
     async def export_data(self):
         """Export Tally data"""
-        selected_data_types=self.get_selected_data_types()
-        if not selected_data_types:
-            QMessageBox.warning(self, "Error", "No checkbox is selected for export. Please select at least one.")
-            return
 
         # Collect configuration
         config = TallyConfig(
             host=self.host_input.text(),
             port=int(self.port_input.text()),
             company="",
-            selected_data_types=self.get_selected_data_types(),
+            selected_data_types=[],
             date_from=self.date_from.date().toPython(),
             date_to=self.date_to.date().toPython()
         )
@@ -810,26 +645,15 @@ class TallyConnectorTab(QWidget):
         # Disable buttons during export
         self.export_btn.setEnabled(False)
         self.sync_btn.setEnabled(False)
-        self.export_btn.setText("Exporting...")
+        self.export_btn.setText("Importing...")
                 
         try:
-        
             # Call controller to export
             success = await self.controller.export_tally_data(config)
 
-            self.exported_data = success
-            dublicate_invoice = self.controller.dublicate_invoice
-
-            # open popup to get prefix for dublicate invoices
-            if dublicate_invoice:
-                dialog = InputPopup()
-
-                if dialog.exec():   # waits until user closes dialog
-                    user_value = dialog.get_value()
-                    self.prefix_entered = user_value
-
             # Format data to show on ui
-            formated_data = await self.format_data(success, dublicate_invoice)
+            formated_data = await self.format_data(success)
+            self.exported_data = formated_data
             self.data_view.refresh_data(formated_data)
                 
         except Exception as e:
@@ -841,57 +665,53 @@ class TallyConnectorTab(QWidget):
         QTimer.singleShot(500, self.enable_buttons)
         return success
     
-    async def format_data(self, data, dublicate_invoice):
-        formated_data = {}
-        for section, records in data.items():
-            if section in ["ledgers", "stocks"]:
-                formated_data.update({section: records})
-            else:
-                # if section in ["sales", "purchase", "credit_note", "debit_note", "receipt", "payment", "contra", "sale_order", "purchase_order", "delivery_challan", "journal", "stock_journal"]:
-                final_row = []
-                count_map = {}
-                for record in records:
-                    record = dict(record)
+    async def format_data(self, data):
+        try:
+            formated_data = {}
 
-                    if section in dublicate_invoice.keys():
-                        field_name = 'invoice_no' if section != "purchase" else 'voucher_no'
-                        invoice_no = record.get(field_name)
-                        if invoice_no not in count_map:
-                            count_map[invoice_no] = 0
-                        else:
-                            count_map[invoice_no] += 1
+            # format ledger
+            fomated_ledger_data = []
+            for ledger in data.get('ledgers'):
+                temp_dict = {}
+                temp_dict.update(ledger)
 
-                        prefix = self.prefix_entered * count_map[invoice_no]
-                        record[field_name] = f"{prefix}{invoice_no}"
+                if ledger.get('ledgerState'):
+                    if ledger.get('ledgerState').isdigit():
+                        ledger_state = state[int(ledger.get('ledgerState'))]
+                        temp_dict['ledgerState'] = ledger_state
 
-                    if section == "purchase":
-                        if not record.get('supplier_voucher_date'):
-                            record["supplier_voucher_date"] = ""
-
-                    if section in ["payment", "expense_with_payment", "contra"]:
-                        party_name = []
-                        customers = json.loads(record.get('customer_name'))
-                        for customer in customers:
-                            party_name.append(customer.get('name'))
+                if ledger.get('ledgerCountry'):
+                    if ledger.get('ledgerCountry').isdigit():
+                        ledger_country = country[int(ledger.get('ledgerCountry'))]
+                        temp_dict['ledgerCountry'] = ledger_country
                         
-                        record["customer_name"] = " ".join(party_name)
+                fomated_ledger_data.append(temp_dict)
 
-                    taxable_value = total_tax = total = 0
-                    for item in record.get('items'):
-                        total += (item.get('invoice_value') or 0)
-                        taxable_value += (item.get('taxable_value') or 0)
-                        total_tax += (item.get('igst') or 0) + (item.get('cgst') or 0) + (item.get('sgst') or 0)
+            formated_data['ledgers'] = fomated_ledger_data
 
-                    record["taxable_value"] = round(taxable_value, 2)
-                    record["total_tax"] = round(total_tax, 2)
-                    record["total"] = round(total, 2)
+            # format journal
+            fomated_journal_data = []
+            for journal in data.get('journal'):
+                temp_dict = {}
 
-                    record.pop("items")
-                    final_row.append(record)
+                if journal.get('amount'):
+                    voucher_date = datetime.strptime(journal.get('slary_date'), '%Y-%m-%d')
+                    voucher_no = f"{journal.get('contact_no')}{voucher_date.strftime('%m%Y')}"
+                    
+                    temp_dict['voucher_no'] = voucher_no
+                    temp_dict['voucher_date'] = voucher_date.strftime('%d-%m-%Y')
+                    temp_dict['party_name'] = journal.get('employ_name')
+                    temp_dict['nature'] = "Salary"
+                    temp_dict['amount'] = float(journal.get('amount'))
+                    temp_dict['narration'] = ""
 
-                formated_data.update({section: final_row})
-    
-        return formated_data
+                    fomated_journal_data.append(temp_dict)
+
+            formated_data['journal'] = fomated_journal_data
+
+            return formated_data
+        except Exception as e:
+            logging.exception(e)
     
     def on_sync_clicked(self):
         # asyncio.run(self.sync_data())
@@ -920,12 +740,10 @@ class TallyConnectorTab(QWidget):
             host=self.host_input.text(),
             port=int(self.port_input.text()),
             company="",
-            selected_data_types=self.get_selected_data_types(),
+            selected_data_types=[],
             date_from=self.date_from.date().toPython(),
             date_to=self.date_to.date().toPython()
         )
-
-        # print("self.exported_data", self.exported_data)
 
         # Disable buttons during sync
         self.export_btn.setEnabled(False)
@@ -943,21 +761,13 @@ class TallyConnectorTab(QWidget):
         # Re-enable buttons after delay
         QTimer.singleShot(1000, self.enable_buttons)
     
-    def get_selected_data_types(self):
-        """Get selected data types from checkboxes"""
-        selected = []
-        for checkbox in self.findChildren(QCheckBox):
-            if checkbox.isChecked():
-                selected.append(checkbox.property("data_type"))
-        return selected
-    
     def enable_buttons(self):
         """Re-enable action buttons"""
         if self.controller.tally_status == ConnectorStatus.CONNECTED:
             self.export_btn.setEnabled(True)
             self.sync_btn.setEnabled(True)
         
-        self.export_btn.setText("📤 Export Data")
+        self.export_btn.setText("📤 Import Data")
         self.sync_btn.setText("🔄 Sync")
 
 class BusyConnectorTab(QWidget):
@@ -1653,15 +1463,15 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
         
         # Create tabs
-        self.dashboard_tab = DashboardTab(self.controller)
+        # self.dashboard_tab = DashboardTab(self.controller)
         self.tally_tab = TallyConnectorTab(self.controller)
-        self.busy_tab = BusyConnectorTab(self.controller)
+        # self.busy_tab = BusyConnectorTab(self.controller)
         self.logs_tab = LogsTab(self.controller)
         
         # Add tabs to tab widget with icons
-        self.central_widget.addTab(self.dashboard_tab, "🏠 Dashboard")
+        # self.central_widget.addTab(self.dashboard_tab, "🏠 Dashboard")
         self.central_widget.addTab(self.tally_tab, "🧮 Tally Connector")
-        self.central_widget.addTab(self.busy_tab, "💼 BUSY Connector")
+        # self.central_widget.addTab(self.busy_tab, "💼 BUSY Connector")
         self.central_widget.addTab(self.logs_tab, "📜 Logs")
         
         # Create status bar
@@ -1673,9 +1483,9 @@ class MainWindow(QMainWindow):
         self.tally_status_widget = StatusIndicator()
         self.status_bar.addPermanentWidget(self.tally_status_widget)
         
-        self.status_bar.addPermanentWidget(QLabel("BUSY:"))
-        self.busy_status_widget = StatusIndicator()
-        self.status_bar.addPermanentWidget(self.busy_status_widget)
+        # self.status_bar.addPermanentWidget(QLabel("BUSY:"))
+        # self.busy_status_widget = StatusIndicator()
+        # self.status_bar.addPermanentWidget(self.busy_status_widget)
         
         # Initial status update
         self.update_status_bar()
@@ -1689,9 +1499,9 @@ class MainWindow(QMainWindow):
         self.controller.tally_status_changed.connect(
             lambda status: self.tally_status_widget.set_status(status)
         )
-        self.controller.busy_status_changed.connect(
-            lambda status: self.busy_status_widget.set_status(status)
-        )
+        # self.controller.busy_status_changed.connect(
+        #     lambda status: self.busy_status_widget.set_status(status)
+        # )
         
         # Connect log updates to status bar
         self.controller.log_updated.connect(self.on_log_updated)
@@ -1699,7 +1509,7 @@ class MainWindow(QMainWindow):
     def update_status_bar(self):
         """Update status bar indicators"""
         self.tally_status_widget.set_status(self.controller.tally_status)
-        self.busy_status_widget.set_status(self.controller.busy_status)
+        # self.busy_status_widget.set_status(self.controller.busy_status)
     
     def on_log_updated(self, log: LogEntry):
         """Handle log updates"""

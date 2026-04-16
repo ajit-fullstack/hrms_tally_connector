@@ -65,12 +65,4 @@ class AccountingTab:
 class DataCategory(Enum):
     """Data category enumeration"""
     LEDGERS = "Ledgers"
-    STOCKS = "Stocks"
-    SALES = "Sales"
-    PURCHASE = "Purchase"
-    CREDIT_NOTE = "Credit Note"
-    DEBIT_NOTE = "Debit Note"
-    RECEIPT = "Receipt"
-    PAYMENT = "Payment"
     JOURNAL = "Journal"
-    CONTRA = "Contra"
