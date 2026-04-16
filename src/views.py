@@ -2,7 +2,7 @@
 UI with adjusted heights - smaller first row, larger second row
 """
 
-import asyncio, logging, os
+import asyncio, logging, os, sys
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTabWidget, QGroupBox, QLabel, QLineEdit,
@@ -11,15 +11,20 @@ from PySide6.QtWidgets import (
     QStatusBar, QGridLayout, QScrollArea, QFrame,
 )
 from PySide6.QtCore import Qt, QDate, QTimer, Signal, QThread
-from PySide6.QtGui import QFont, QColor, QTextCursor
+from PySide6.QtGui import QFont, QColor, QTextCursor, QIcon
 
 from src.controllers import MainController
-from src.models import ConnectorStatus, LogLevel, LogEntry, TallyConfig, BusyConfig
 from src.data_manager import EnhancedDataView
+from src.models import ConnectorStatus, LogLevel, LogEntry, TallyConfig, BusyConfig
 
 from datetime import datetime
 from utils.drop_down import country, state
 
+
+def resource_path(relative_path):
+    """Get absolute path to resource (works for dev and PyInstaller exe)"""
+    base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
+    return os.path.join(base_path, relative_path)
 
 def get_log_path():
     base_dir = os.path.join(os.getenv("APPDATA"), "TallyConnector")
@@ -1455,6 +1460,9 @@ class MainWindow(QMainWindow):
         self.controller = controller
         self.init_ui()
         self.setup_connections()
+
+        self.setWindowTitle("Tally Connector")
+        self.setWindowIcon(QIcon(resource_path("icon.ico")))  # ✅ HERE
     
     def init_ui(self):
         """Initialize UI"""
