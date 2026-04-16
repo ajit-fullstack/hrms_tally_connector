@@ -10,12 +10,14 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 from datetime import date, datetime
 from typing import List
+from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import QObject, Signal, QTimer
 
 from src.models import (
     ConnectorStatus, LogLevel, LogEntry,
     TallyConfig, BusyConfig
 )
+
 
 logging.basicConfig(filename="error.txt", format="%(asctime)s - %(message)s", level=logging.DEBUG)
 
@@ -68,7 +70,6 @@ class MainController(QObject):
         self.url = f"http://{host}:{port}"
         login_url = "https://api-hr.startupkhata.com/api/auth/login"
 
-
         self._add_log(LogLevel.INFO, f"Attempting to connect to Tally at {host}:{port}", "Tally")
         self._add_log(LogLevel.INFO, f"Attempting to api at {login_url}", "Startup khata")
 
@@ -79,29 +80,23 @@ class MainController(QObject):
                     "username": user_name,
                     "password": password,
                 },
-                timeout=10
+                timeout=20
             )
 
-            if response.status_code == 200:
-                result = response.json()
+            result = response.json()
 
-                # save token if returned
-                self.access_token = result.get("access_token")
+            # save token if returned
+            self.access_token = result.get("access_token")
 
-                self._add_log(LogLevel.INFO, "Login successful", "Startup khata")
-                QTimer.singleShot(1000, self._tally_connection)
-                return True
-            else:
-                self._add_log(LogLevel.ERROR, f"Login failed: {response.text}", "Tally")
-                self.tally_status = ConnectorStatus.ERROR
-                self.tally_status_changed.emit(self.tally_status)
-                return False
+            QTimer.singleShot(1000, self._tally_connection)
+            self._add_log(LogLevel.INFO, "Login successful", "Startup khata")
 
         except Exception as e:
-            self._add_log(LogLevel.ERROR, f"Connection error: {str(e)}", "Tally")
             self.tally_status = ConnectorStatus.ERROR
             self.tally_status_changed.emit(self.tally_status)
-            return False
+
+            self._add_log(LogLevel.ERROR, f"Login failed: {str(e)}", "Tally")
+            raise Exception(str(e))
     
     def _tally_connection(self):
         """Simulate Tally connection result"""
@@ -123,7 +118,7 @@ class MainController(QObject):
             self.tally_status_changed.emit(self.tally_status)
             self._add_log(LogLevel.ERROR, "Tally connection failed", "Tally")
 
-            raise Exception(str(e))
+            QMessageBox.warning(None, "Error", "Tally connection failed. Please ensure that Tally is running.")
     
     def disconnect_tally(self):
         """Disconnect Tally"""
@@ -173,31 +168,45 @@ class MainController(QObject):
             final_data = {}
             month_year_list = self.get_month_year_range(config.date_from, config.date_to)
 
-            result_data = []
             async with httpx.AsyncClient(timeout=30.0) as client:
+
+                # ✅ Parallel journal fetch
                 tasks = [
                     self.fetch_data(client, item["month"], item["year"], headers)
                     for item in month_year_list
                 ]
 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-                if results:
-                    for result in results:
-                        result_data.extend(result)
 
-            final_data['journal'] = result_data
-        
-            response = requests.get('https://api-hr.startupkhata.com/import/employees', headers=headers)
-            if response.text:
-                final_data['ledgers'] = response.json()
+                result_data = []
+                for result in results:
+                    if isinstance(result, Exception):
+                        self._add_log(LogLevel.ERROR, str(result), "Tally Fetch")
+                        continue
+                    result_data.extend(result)
 
-            QTimer.singleShot(7000, lambda: self._complete_export("Tally"))
+                final_data['journal'] = result_data
+
+                # ✅ Async employee API (FIXED)
+                emp_response = await client.get(
+                    "https://api-hr.startupkhata.com/import/employees",
+                    headers=headers
+                )
+
+                if emp_response.status_code == 200:
+                    final_data['ledgers'] = emp_response.json()
+                else:
+                    self._add_log(LogLevel.ERROR, emp_response.text, "Employee API")
+
+            # ✅ REMOVE delay completely
+            self._complete_export("Tally")
+
             return final_data
 
         except Exception as e:
+            self._add_log(LogLevel.ERROR, str(e), "Tally")
             logging.exception(e)
-            raise Exception(e)
-
+            raise
     # Export Data Form Tally
     def get_tally_companies(self):
         request = requests.post(self.url, data=company_details_xml)
@@ -214,13 +223,13 @@ class MainController(QObject):
 
             list_of_companies.append(company.findtext("NAME"))
             
-            print({
-                "name": company.findtext("NAME"),
-                "state": company.findtext("STATENAME"),
-                "country": company.findtext("COUNTRYNAME"),
-                "gstin": company.findtext("GSTIN"),
-                "address": address
-            })
+            # print({
+            #     "name": company.findtext("NAME"),
+            #     "state": company.findtext("STATENAME"),
+            #     "country": company.findtext("COUNTRYNAME"),
+            #     "gstin": company.findtext("GSTIN"),
+            #     "address": address
+            # })
             
         return list_of_companies
     
@@ -332,9 +341,6 @@ class MainController(QObject):
         """
 
         response = requests.post(self.url, data=xml_request, headers=headers)
-
-        # print("response:", response.text)
-
         root = ET.fromstring(response.text)
 
         companies = []
@@ -355,13 +361,15 @@ class MainController(QObject):
 
     def fetch_data_from_tally(self, config):
         url = "http://localhost:9000"
-
-        # <SVFROMDATE>{from_date}</SVFROMDATE>
-        # <SVTODATE>{to_date}</SVTODATE>
-
         headers = {"Content-Type": "application/xml"}
 
-        response = requests.post(url, data=combined_fetch_tdl, headers=headers)
+        from_date = config.date_from.strftime("%d-%b-%Y")
+        to_date   = config.date_to.strftime("%d-%b-%Y")
+        xml_request  = combined_fetch_tdl.format(from_date=from_date, to_date=to_date)
+
+        logging.debug(xml_request)
+
+        response = requests.post(url, data=xml_request, headers=headers)
         response = response.text
 
         logging.debug(response)
@@ -662,9 +670,11 @@ class MainController(QObject):
             journal_need_to_create = self.sync_journal(tally_data.get('journals'), data.get('journal'))
             self.create_journal(journal_need_to_create)
 
+            self._complete_sync("Tally")
             return {"message": "Data has been sucessfully synced.."}
         except Exception as e:
             logging.exception(e)
+            self._add_log(LogLevel.ERROR, str(e), "Tally")
             raise Exception(e)
 
     def sync_busy_data(self, config: BusyConfig) -> bool:

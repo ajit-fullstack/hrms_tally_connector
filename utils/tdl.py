@@ -153,6 +153,8 @@ combined_fetch_tdl = """
     <BODY>
       <DESC>
         <STATICVARIABLES>
+          <SVFROMDATE TYPE="Date">{from_date}</SVFROMDATE>
+          <SVTODATE TYPE="Date">{to_date}</SVTODATE>
           <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
         </STATICVARIABLES>
 
@@ -175,6 +177,7 @@ combined_fetch_tdl = """
             <COLLECTION NAME="JournalCollection">
               <TYPE>VOUCHER</TYPE>
               <CHILDOF>Journal</CHILDOF>
+              <FILTER>IsJournalVoucher</FILTER>
               <FETCH>
                 DATE,
                 VOUCHERNUMBER,
@@ -183,6 +186,9 @@ combined_fetch_tdl = """
                 ALLLEDGERENTRIES.LIST
               </FETCH>
             </COLLECTION>
+            <SYSTEM TYPE="Formula" NAME="IsJournalVoucher">
+              $$IsEqual:$VOUCHERTYPENAME:"Journal"
+            </SYSTEM>
 
             <!-- ✅ FINAL COMBINED COLLECTION -->
             <COLLECTION NAME="CombinedData">

@@ -590,7 +590,6 @@ class TallyConnectorTab(QWidget):
             self.controller.connect_tally(host, port, user_name, password)
         except Exception as e:
             QMessageBox.warning(self, "Error", str(e))
-            return
     
     def on_status_changed(self, status: ConnectorStatus):
         """Handle status changes"""
@@ -752,14 +751,14 @@ class TallyConnectorTab(QWidget):
         
         try:
             # Call controller to sync
-            success = await self.controller.sync_tally_data(config, self.exported_data)
+            await self.controller.sync_tally_data(config, self.exported_data)
         except Exception as e:
             QMessageBox.warning(self, "Error", str(e))
             QTimer.singleShot(500, self.enable_buttons)
             return
         
         # Re-enable buttons after delay
-        QTimer.singleShot(1000, self.enable_buttons)
+        QTimer.singleShot(500, self.enable_buttons)
     
     def enable_buttons(self):
         """Re-enable action buttons"""
