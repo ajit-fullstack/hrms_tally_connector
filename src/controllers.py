@@ -2,7 +2,7 @@
 Application controller for Accounting Connector
 """
 
-import requests, json, asyncio, httpx, logging, re
+import requests, asyncio, httpx, logging, os
 from utils.tdl import *
 from utils.drop_down import *
 from utils.utils import Utils
@@ -18,8 +18,12 @@ from src.models import (
     TallyConfig, BusyConfig
 )
 
+def get_log_path():
+    base_dir = os.path.join(os.getenv("APPDATA"), "TallyConnector")
+    os.makedirs(base_dir, exist_ok=True)
+    return os.path.join(base_dir, "error.txt")
 
-logging.basicConfig(filename="error.txt", format="%(asctime)s - %(message)s", level=logging.DEBUG)
+logging.basicConfig(filename=get_log_path(), format="%(asctime)s - %(message)s", level=logging.DEBUG)
 
 class MainController(QObject):
     """Main application controller"""

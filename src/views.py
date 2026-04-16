@@ -2,7 +2,7 @@
 UI with adjusted heights - smaller first row, larger second row
 """
 
-import asyncio, logging, json
+import asyncio, logging, os
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTabWidget, QGroupBox, QLabel, QLineEdit,
@@ -21,7 +21,12 @@ from datetime import datetime
 from utils.drop_down import country, state
 
 
-logging.basicConfig(filename="error.txt", format="%(asctime)s - %(message)s", level=logging.DEBUG)
+def get_log_path():
+    base_dir = os.path.join(os.getenv("APPDATA"), "TallyConnector")
+    os.makedirs(base_dir, exist_ok=True)
+    return os.path.join(base_dir, "error.txt")
+
+logging.basicConfig(filename=get_log_path(), format="%(asctime)s - %(message)s", level=logging.DEBUG)
 
 
 class AsyncWorker(QThread):
@@ -295,8 +300,7 @@ class TallyConnectorTab(QWidget):
         username_label = QLabel("Username:")
         username_label.setStyleSheet("font-weight: bold; font-size: 12px;")
 
-        self.username_input = QLineEdit("startupkhata@gmail.com")
-        # self.username_input = QLineEdit("anzarali.icai@gmail.com")
+        self.username_input = QLineEdit("")
         self.username_input.setPlaceholderText("Username")
         self.username_input.setFixedHeight(INPUT_HEIGHT)
         self.username_input.setFixedWidth(200)
@@ -306,7 +310,7 @@ class TallyConnectorTab(QWidget):
         password_label = QLabel("Password:")
         password_label.setStyleSheet("font-weight: bold; font-size: 12px;")
 
-        self.password_input = QLineEdit("12345678")
+        self.password_input = QLineEdit("")
         self.password_input.setPlaceholderText("Password")
         self.password_input.setEchoMode(QLineEdit.Password)
         self.password_input.setFixedHeight(INPUT_HEIGHT)
@@ -1340,12 +1344,12 @@ class LogsTab(QWidget):
         # Toolbar
         toolbar_layout = QHBoxLayout()
         
-        toolbar_layout.addWidget(QLabel("Log Level Filter:"))
+        # toolbar_layout.addWidget(QLabel("Log Level Filter:"))
         
-        self.log_level_combo = QComboBox()
-        self.log_level_combo.addItems(["All", "📘 INFO", "⚠️ WARNING", "❌ ERROR", "✅ SUCCESS"])
-        self.log_level_combo.currentTextChanged.connect(self.filter_logs)
-        toolbar_layout.addWidget(self.log_level_combo)
+        # self.log_level_combo = QComboBox()
+        # self.log_level_combo.addItems(["All", "📘 INFO", "⚠️ WARNING", "❌ ERROR", "✅ SUCCESS"])
+        # self.log_level_combo.currentTextChanged.connect(self.filter_logs)
+        # toolbar_layout.addWidget(self.log_level_combo)
         
         toolbar_layout.addStretch()
         
@@ -1353,9 +1357,9 @@ class LogsTab(QWidget):
         self.clear_btn.clicked.connect(self.clear_logs)
         toolbar_layout.addWidget(self.clear_btn)
         
-        self.save_btn = QPushButton("💾 Save Logs")
-        self.save_btn.clicked.connect(self.save_logs)
-        toolbar_layout.addWidget(self.save_btn)
+        # self.save_btn = QPushButton("💾 Save Logs")
+        # self.save_btn.clicked.connect(self.save_logs)
+        # toolbar_layout.addWidget(self.save_btn)
         
         layout.addLayout(toolbar_layout)
         
